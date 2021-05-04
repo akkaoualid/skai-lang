@@ -1,0 +1,36 @@
+dec x = 5;
+dec y: int = 5;
+dec z: int;
+z = 5;
+dec const w: int = 5;
+
+dec fact:(int -> int) = (x: int) -> int {
+   if x <= 0 {
+      return 1;
+   } else {
+      return x*fact(x-1);
+   }
+};
+
+dec a: int = 1;
+for i of 0..10 {
+    a += i;
+}
+
+while true {
+    a++;
+    if a == 100 { break; } 
+    else { continue; }
+}
+
+class point {
+    private {
+        dec x:int;
+        dec y:int;
+    }
+    dec init:(int, int) = (int x, int y) {
+         this.x, this.y = x, y;
+    };
+}
+
+dec p:point = point(1,2);
