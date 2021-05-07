@@ -4,7 +4,7 @@ dec z: int;
 z = 5;
 dec const w: int = 5;
 
-dec fact:(int -> int) = (x: int) -> int {
+fun fact(x: int) -> int {
    if x <= 0 {
       return 1;
    } else {
@@ -19,18 +19,34 @@ for i of 0..10 {
 
 while true {
     a++;
-    if a == 100 { break; } 
-    else { continue; }
+    if a == 100 { 
+        break;
+    } 
+    else { 
+        continue; 
+    }
 }
 
 class point {
+    fun point(int x, int y) {
+         this.x, this.y = x, y;
+    };
+
+    fun multiply(p: point) -> point {
+        return point(this.x * p.x, this.y * p.y);
+    };
+
+    fun assign(p: point) -> point 
+        this.x, this.y = p.x, p.y;
+        return this;
+    }
+
     private {
         dec x:int;
         dec y:int;
     }
-    dec init:(int, int) = (int x, int y) {
-         this.x, this.y = x, y;
-    };
 }
 
-dec p:point = point(1,2);
+dec p: point = point(1,2);
+dec p2: point = point(2, 3);
+dec out: point = p * p2;
