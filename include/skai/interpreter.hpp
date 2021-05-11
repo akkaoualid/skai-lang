@@ -7,5 +7,7 @@
 #include "error.hpp"
 #include "parser.hpp"
 #include "scope.hpp"
-namespace skai {}
+namespace skai {
+struct interpreter {};
+}  // namespace skai
 #endif

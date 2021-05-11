@@ -28,7 +28,7 @@ while true {
 }
 
 class point {
-    fun point(int x, int y) {
+    fun point(x: int, y: int) {
          this.x, this.y = x, y;
     };
 
