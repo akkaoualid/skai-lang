@@ -88,165 +88,172 @@ static std::unordered_map<std::string, token> keywords{
 struct lexer {
     lexer(const std::string& str, const std::string& name) : m_inp{str}, m_file{name} {}
 
+    void scan() {
+        switch (m_get()) {
+            default:
+                if (std::isdigit(static_cast<unsigned char>(m_get()))) {
+                    m_number();
+                } else if (std::isalpha(static_cast<unsigned char>(m_get()))) {
+                    m_ident();
+                }
+                break;
+            case ')':
+                m_addtok(token::rparen);
+                break;
+            case '(':
+                m_addtok(token::lparen);
+                break;
+            case '}':
+                m_addtok(token::rbracket);
+                break;
+            case '{':
+                m_addtok(token::lbracket);
+                break;
+            case ']':
+                m_addtok(token::rcbracket);
+                break;
+            case '[':
+                m_addtok(token::lcbracket);
+                break;
+            case '.':
+                m_addtok(token::dot);
+                break;
+            case ',':
+                m_addtok(token::comma);
+                break;
+            case ';':
+                m_addtok(token::scolon);
+                break;
+            case ':':
+                m_addtok(token::colon);
+                break;
+            case '*':
+                m_addtok(token::star);
+                break;
+            case '+':
+                m_addtok(token::plus);
+                break;
+            case '%':
+                m_addtok(token::mod);
+                break;
+            case ' ':
+            case '\t':
+            case '\r':
+                break;
+            case '\n':
+                m_line++;
+                break;
+            case '^':
+                m_addtok(token::xor_);
+                break;
+            case '&':
+                if (m_peek() == '&') {
+                    m_addtok(token::and_, "&&");
+                    m_advance();
+                } else {
+                    m_addtok(token::b_and);
+                }
+                break;
+            case '|':
+                if (m_peek() == '|') {
+                    m_addtok(token::or_, "||");
+                    m_advance();
+                } else {
+                    m_addtok(token::b_or);
+                }
+                break;
+            case '-':
+                if (m_peek() == '>') {
+                    m_addtok(token::arrow, "->");
+                    m_advance();
+                } else {
+                    m_addtok(token::minus);
+                }
+                break;
+            case '/':
+                m_addtok(token::slash);
+                break;
+            case '!':
+                if (m_peek() == '=') {
+                    m_addtok(token::not_eq_, "!=");
+                    m_advance();
+                } else {
+                    m_addtok(token::not_);
+                }
+                break;
+            case '=':
+                if (m_peek() == '=') {
+                    m_addtok(token::d_eq, "==");
+                    m_advance();
+                } else {
+                    m_addtok(token::eq);
+                }
+                break;
+            case '<':
+                if (m_peek() == '=') {
+                    m_addtok(token::lt_eq, "<=");
+                    m_advance();
+                } else if (m_peek() == '<') {
+                    m_addtok(token::lshift, "<<");
+                    m_advance();
+                } else {
+                    m_addtok(token::lt);
+                }
+                break;
+            case '>':
+                if (m_peek() == '=') {
+                    m_addtok(token::gt_eq, ">=");
+                    m_advance();
+                } else if (m_peek() == '>') {
+                    m_addtok(token::rshift, ">>");
+                    m_advance();
+                } else {
+                    m_addtok(token::gt);
+                }
+                break;
+            case '"':
+                m_advance();
+                m_string();
+                break;
+        }
+        m_advance();
+    }
+
     auto lex() {
         while (!at_end()) {
-            switch (m_get()) {
-                default:
-                    if (std::isdigit(static_cast<unsigned char>(m_get()))) {
-                        m_number();
-                    } else if (std::isalpha(static_cast<unsigned char>(m_get()))) {
-                        m_ident();
-                    }
-                    break;
-                case ')':
-                    m_addtok(token::rparen);
-                    break;
-                case '(':
-                    m_addtok(token::lparen);
-                    break;
-                case '}':
-                    m_addtok(token::rbracket);
-                    break;
-                case '{':
-                    m_addtok(token::lbracket);
-                    break;
-                case ']':
-                    m_addtok(token::rcbracket);
-                    break;
-                case '[':
-                    m_addtok(token::lcbracket);
-                    break;
-                case '.':
-                    m_addtok(token::dot);
-                    break;
-                case ',':
-                    m_addtok(token::comma);
-                    break;
-                case ';':
-                    m_addtok(token::scolon);
-                    break;
-                case ':':
-                    m_addtok(token::colon);
-                    break;
-                case '*':
-                    m_addtok(token::star);
-                    break;
-                case '+':
-                    m_addtok(token::plus);
-                    break;
-                case ' ':
-                case '\t':
-                case '\r':
-                    break;
-                case '\n':
-                    m_line++;
-                    break;
-                case '^':
-                    m_addtok(token::xor_);
-                    break;
-                case '&':
-                    if (m_peek() == '&') {
-                        m_addtok(token::and_, "&&");
-                        m_advance();
-                    } else {
-                        m_addtok(token::b_and);
-                    }
-                    break;
-                case '|':
-                    if (m_peek() == '|') {
-                        m_addtok(token::or_, "||");
-                        m_advance();
-                    } else {
-                        m_addtok(token::b_or);
-                    }
-                    break;
-                case '-':
-                    if (m_peek() == '>') {
-                        m_addtok(token::arrow, "->");
-                        m_advance();
-                    } else {
-                        m_addtok(token::minus);
-                    }
-                    break;
-                case '/':
-                    m_addtok(token::slash);
-                    break;
-                case '!':
-                    if (m_peek() == '=') {
-                        m_addtok(token::not_eq_, "!=");
-                        m_advance();
-                    } else {
-                        m_addtok(token::not_);
-                    }
-                    break;
-                case '=':
-                    if (m_peek() == '=') {
-                        m_addtok(token::d_eq, "==");
-                        m_advance();
-                    } else {
-                        m_addtok(token::eq);
-                    }
-                    break;
-                case '<':
-                    if (m_peek() == '=') {
-                        m_addtok(token::lt_eq, "<=");
-                        m_advance();
-                    } else if (m_peek() == '<') {
-                        m_addtok(token::lshift, "<<");
-                        m_advance();
-                    } else {
-                        m_addtok(token::lt);
-                    }
-                    break;
-                case '>':
-                    if (m_peek() == '=') {
-                        m_addtok(token::gt_eq, ">=");
-                        m_advance();
-                    } else if (m_peek() == '>') {
-                        m_addtok(token::rshift, ">>");
-                        m_advance();
-                    } else {
-                        m_addtok(token::gt);
-                    }
-                    break;
-                case '"':
-                    m_string();
-                    break;
-            }
-            m_advance();
+            scan();
         }
         return m_out;
     }
 
    private:
     void m_advance(std::size_t x = 1) { m_pos += x; }
-    char m_peek(std::size_t x = 1) { return (at_end() ? '\0' : m_inp.at(m_pos + x)); }
+    char m_peek(std::size_t x = 1) { return ((m_pos + x) >= m_inp.size() ? '\0' : m_inp.at(m_pos + x)); }
     char m_previous(std::size_t x = 1) { return m_peek(m_pos - x); }
     bool at_end() { return m_pos >= m_inp.size(); }
-    char m_get() { return m_inp.at(m_pos); }
+    char m_get() { return (at_end() ? '\0' : m_inp.at(m_pos)); }
     void m_addtok(token tok) { m_out.push_back(token_handler{tok, std::string(1, m_get()), {m_file, m_line, m_pos}}); }
     void m_addtok(token tok, std::string str) { m_out.push_back(token_handler{tok, str, {m_file, m_line, m_pos}}); }
     void m_string() {
         std::string full;
-        while (m_peek() != '"' && !at_end()) {
+        while (m_get() != '"' && !at_end()) {
             full.push_back(m_get());
             m_advance();
         }
         if (at_end()) {
             throw skai::exception{"unterminated string literal '\"'"};
         }
-        m_advance();
         m_addtok(token::string, full);
+        m_advance(-1);
     }
     void m_number() {
         std::string full;
-        if (m_peek() == '.' && std::isdigit(static_cast<unsigned char>(m_get()))) m_advance();
-        while (!at_end()) {
+        while (std::isdigit(static_cast<unsigned char>(m_get())) || m_get() == '.') {
             full.push_back(m_get());
             m_advance();
         }
-
         m_addtok(token::number, full);
+        m_advance(-1);
     }
 
     void m_ident() {
@@ -261,6 +268,7 @@ struct lexer {
         } else {
             m_addtok(token::identifier, full);
         }
+        m_advance(-1);
     }
 
     std::vector<token_handler> m_out;

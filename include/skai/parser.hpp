@@ -10,9 +10,13 @@
 #include "sloc.hpp"
 namespace skai {
 struct parser {
-    parser(const std::vector<token_handler> tkns, const std::string& file) : m_src{tkns} {}
+    parser(const std::vector<token_handler> tkns, const std::string& file) : m_src{tkns}, m_file{file} {}
 
    private:
+    [[noreturn]] void m_error(const std::string& msg) {
+        throw skai::exception{fmt::format("{}:{} - {}", m_file, m_pos, msg)};
+    }
+
     auto m_get() { return m_src.at(at_end() ? m_src.size() - 1 : m_pos); }
     void m_advance(std::size_t x = 1) {
         if (!at_end())
@@ -34,12 +38,12 @@ struct parser {
 
     auto consume(token tok, const std::string& msg) {
         if (m_match(tok)) {
-            return m_get();
+            return m_previous();
         }
-        throw skai::exception{msg};
+        m_error(msg);
     }
 
-    auto expression() { return equality(); }
+    auto expression() { return assignment(); }
 
     std::unique_ptr<expr> equality() {
         std::unique_ptr<expr> expr_ = comparison();
@@ -49,11 +53,13 @@ struct parser {
             expr_ = std::make_unique<binary_expr>(std::move(expr_), oper.token, std::move(right));
         }
         return expr_;
-    };
+    }
 
     std::unique_ptr<expr> declaration() {
         if (m_match(token::dec)) {
             return var_declaration();
+        } else if (m_match(token::fun)) {
+            return function_stmt_();
         }
         return statement();
     }
@@ -61,16 +67,68 @@ struct parser {
     std::unique_ptr<expr> statement() {
         if (m_match(token::if_)) {
             return if_stmt_();
+        } else if (m_match(token::lbracket)) {
+            return std::make_unique<block_stmt>(block_stmt{block()});
+        } else if (m_match(token::while_)) {
+            return while_stmt_();
+        } else if (m_match(token::return_)) {
+            return return_stmt_();
         }
+        return expr_stmt();
     }
 
+    std::unique_ptr<expr> return_stmt_() {
+        std::unique_ptr<expr> value = nullptr;
+        if (!m_get().is(token::scolon)) value = expression();
+        consume(token::scolon, "expected ';' after return  expression");
+        return std::make_unique<return_stmt>(return_stmt{std::move(value)});
+    }
+
+    std::unique_ptr<expr> while_stmt_() {
+        auto expr_ = expression();
+        return std::make_unique<while_stmt>(std::move(expr_), statement());
+    }
+
+    std::unique_ptr<expr> expr_stmt() {
+        auto expr_ = expression();
+        consume(token::scolon, "expected ';' after epxression");
+        return expr_;
+    }
+
+    std::unique_ptr<expr> assignment() {
+        auto expr_ = or_expr();
+        if (m_match(token::eq)) {
+            auto val = assignment();
+            expr_ = std::make_unique<assign_expr>(std::move(expr_), std::move(val));
+        }
+        return expr_;
+    }
+
+    std::unique_ptr<expr> or_expr() {
+        auto expr_ = and_expr();
+        while (m_match(token::or_)) {
+            auto oper = m_previous();
+            auto right = and_expr();
+            expr_ = std::make_unique<logical_expr>(std::move(expr_), oper.token, std::move(right));
+        }
+        return expr_;
+    }
+    std::unique_ptr<expr> and_expr() {
+        auto expr_ = equality();
+        while (m_match(token::and_)) {
+            auto oper = m_previous();
+            auto right = equality();
+            expr_ = std::make_unique<logical_expr>(std::move(expr_), oper.token, std::move(right));
+        }
+        return expr_;
+    }
     std::unique_ptr<expr> var_declaration() {
         // TODO: add types and const support
         auto name = consume(token::identifier, "expected identifier for variable name");
         std::unique_ptr<expr> init = nullptr;
         std::unique_ptr<expr> type = nullptr;
         bool is_const = false;
-        if (m_get().is(token::eq)) {
+        if (m_match(token::eq)) {
             init = expression();
         }
         consume(token::scolon, "expected ';' after variable declaration");
@@ -78,9 +136,7 @@ struct parser {
     }
 
     std::unique_ptr<expr> if_stmt_() {
-        consume(token::lparen, "expected '(' before if condition");
         std::unique_ptr<expr> cond = expression();
-        consume(token::rparen, "expected ')' after if statement body");
         std::unique_ptr<expr> then = statement();
         std::unique_ptr<expr> else_ = nullptr;
         if (m_match(token::else_)) {
@@ -89,6 +145,21 @@ struct parser {
         return std::make_unique<if_stmt>(std::move(cond), std::move(then), std::move(else_));
     }
 
+    std::unique_ptr<expr> function_stmt_() {
+        auto name = consume(token::identifier, "expected identifier");
+        std::vector<std::unique_ptr<expr>> params;
+        consume(token::lparen, "expected '(' after function");
+        if (!m_get().is(token::rparen)) {
+            do {
+                if (params.size() > 255) throw skai::exception{"can't have more than 255 parameters"};
+                consume(token::identifier, "expected identifier");
+                params.push_back(std::make_unique<ident_expr>(m_previous().str));
+            } while (m_match(token::comma));
+        }
+        consume(token::rparen, "expected ')' after argument list");
+        consume(token::lbracket, "expected '{' after argument list");
+        return std::make_unique<function_stmt>(name.str, std::move(params), std::make_unique<block_stmt>(block()));
+    }
     std::vector<std::unique_ptr<expr>> block() {
         std::vector<std::unique_ptr<expr>> stmts;
         while (m_get().isnot(token::rbracket) && !at_end()) {
@@ -126,31 +197,57 @@ struct parser {
         return expr_;
     }
     std::unique_ptr<expr> unary() {
-        if (m_get().is(token::not_, token::minus, token::plus)) {
+        if (m_match(token::not_, token::minus, token::plus)) {
             auto oper = m_previous();
-            return std::make_unique<unary_expr>(oper.token, std::move(unary()));
+            return std::make_unique<unary_expr>(oper.token, unary());
         }
-        return primary();
+        return call();
     }
+
+    std::unique_ptr<expr> call() {
+        auto expr_ = primary();
+        std::vector<std::unique_ptr<expr>> args;
+        while (true) {
+            if (m_match(token::lparen)) {
+                if (!m_get().is(token::rparen)) {
+                    do {
+                        if (args.size() > 255) m_error("can't have more than 255 arguments");
+                        args.push_back(expression());
+                    } while (m_match(token::comma));
+                }
+                consume(token::rparen, "expected ')' after argument list");
+                expr_ = std::make_unique<call_expr>(std::move(expr_), std::move(args));
+            } else {
+                break;
+            }
+        }
+        return expr_;
+    }
+
     std::unique_ptr<expr> primary() {
         if (m_match(token::true_, token::false_)) {
-            return std::make_unique<bool_expr>(m_get().token);
-        } else if (m_match(token::null)) {
+            return std::make_unique<bool_expr>(m_previous().token);
+        }
+        if (m_match(token::null)) {
             return std::make_unique<null_expr>();
-        } else if (m_match(token::number)) {
+        }
+        if (m_match(token::number)) {
             return std::make_unique<num_expr>(m_previous().str);
-        } else if (m_match(token::string)) {
+        }
+        if (m_match(token::string)) {
             return std::make_unique<string_expr>(m_previous().str);
-        } else if (m_match(token::lparen)) {
+        }
+        if (m_match(token::lparen)) {
             auto expr_ = expression();
             if (!m_match(token::rparen)) {
-                throw skai::exception{fmt::format("{}:{}: expexted ')' after expression", m_file, m_pos)};
+                m_error("expected ')' after expression");
             }
             return expr_;
-        } else if (m_match(token::identifier)) {
-            return std::make_unique<ident_expr>(m_get().str);
         }
-        throw skai::exception{"expected expression"};
+        if (m_match(token::identifier)) {
+            return std::make_unique<ident_expr>(m_previous().str);
+        }
+        m_error(fmt::format("unexpected token {}", m_get().str));
     }
 
     std::vector<token_handler> m_src;
