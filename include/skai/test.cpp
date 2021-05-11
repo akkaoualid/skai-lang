@@ -1,5 +1,6 @@
 #include <iostream>
 
+#include "interpreter.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
 
