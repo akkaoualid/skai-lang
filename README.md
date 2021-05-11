@@ -1,5 +1,5 @@
 <p align="center">
-   <img with=128 height=128 src="https://raw.githubusercontent.com/dammi-i/skai-lang/development/skai_logo.jpg?token=AIW76VCYKEFBMNXM2ES2NUTATKN7M">
+   <img with=128 height=128 src="./skai_logo.jpg">
 </p>
 <p align="center">skai programming language</p>
 
