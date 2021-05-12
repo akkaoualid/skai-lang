@@ -1,0 +1,7 @@
+// define variable with the value of 5
+let var = 5;
+
+// re-assign var
+var = pow(var, 2);
+
+print(var);

@@ -45,18 +45,18 @@ struct parser {
 
     auto expression() { return assignment(); }
 
-    std::unique_ptr<expr> equality() {
-        std::unique_ptr<expr> expr_ = comparison();
+    std::shared_ptr<expr> equality() {
+        std::shared_ptr<expr> expr_ = comparison();
         while (m_match(token::not_eq_, token::d_eq)) {
             auto oper = m_previous();
-            std::unique_ptr<expr> right = comparison();
-            expr_ = std::make_unique<binary_expr>(std::move(expr_), oper.token, std::move(right));
+            std::shared_ptr<expr> right = comparison();
+            expr_ = std::make_shared<binary_expr>(std::move(expr_), oper.token, std::move(right));
         }
         return expr_;
     }
 
-    std::unique_ptr<expr> declaration() {
-        if (m_match(token::dec)) {
+    std::shared_ptr<expr> declaration() {
+        if (m_match(token::let)) {
             return var_declaration();
         } else if (m_match(token::fun)) {
             return function_stmt_();
@@ -64,11 +64,11 @@ struct parser {
         return statement();
     }
 
-    std::unique_ptr<expr> statement() {
+    std::shared_ptr<expr> statement() {
         if (m_match(token::if_)) {
             return if_stmt_();
         } else if (m_match(token::lbracket)) {
-            return std::make_unique<block_stmt>(block_stmt{block()});
+            return std::make_shared<block_stmt>(block_stmt{block()});
         } else if (m_match(token::while_)) {
             return while_stmt_();
         } else if (m_match(token::return_)) {
@@ -77,91 +77,91 @@ struct parser {
         return expr_stmt();
     }
 
-    std::unique_ptr<expr> return_stmt_() {
-        std::unique_ptr<expr> value = nullptr;
+    std::shared_ptr<expr> return_stmt_() {
+        std::shared_ptr<expr> value = nullptr;
         if (!m_get().is(token::scolon)) value = expression();
         consume(token::scolon, "expected ';' after return  expression");
-        return std::make_unique<return_stmt>(return_stmt{std::move(value)});
+        return std::make_shared<return_stmt>(return_stmt{std::move(value)});
     }
 
-    std::unique_ptr<expr> while_stmt_() {
+    std::shared_ptr<expr> while_stmt_() {
         auto expr_ = expression();
-        return std::make_unique<while_stmt>(std::move(expr_), statement());
+        return std::make_shared<while_stmt>(std::move(expr_), statement());
     }
 
-    std::unique_ptr<expr> expr_stmt() {
+    std::shared_ptr<expr> expr_stmt() {
         auto expr_ = expression();
         consume(token::scolon, "expected ';' after epxression");
         return expr_;
     }
 
-    std::unique_ptr<expr> assignment() {
+    std::shared_ptr<expr> assignment() {
         auto expr_ = or_expr();
         if (m_match(token::eq)) {
             auto val = assignment();
-            expr_ = std::make_unique<assign_expr>(std::move(expr_), std::move(val));
+            expr_ = std::make_shared<assign_expr>(std::move(expr_), std::move(val));
         }
         return expr_;
     }
 
-    std::unique_ptr<expr> or_expr() {
+    std::shared_ptr<expr> or_expr() {
         auto expr_ = and_expr();
         while (m_match(token::or_)) {
             auto oper = m_previous();
             auto right = and_expr();
-            expr_ = std::make_unique<logical_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<logical_expr>(std::move(expr_), oper.token, std::move(right));
         }
         return expr_;
     }
-    std::unique_ptr<expr> and_expr() {
+    std::shared_ptr<expr> and_expr() {
         auto expr_ = equality();
         while (m_match(token::and_)) {
             auto oper = m_previous();
             auto right = equality();
-            expr_ = std::make_unique<logical_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<logical_expr>(std::move(expr_), oper.token, std::move(right));
         }
         return expr_;
     }
-    std::unique_ptr<expr> var_declaration() {
+    std::shared_ptr<expr> var_declaration() {
         // TODO: add types and const support
         auto name = consume(token::identifier, "expected identifier for variable name");
-        std::unique_ptr<expr> init = nullptr;
-        std::unique_ptr<expr> type = nullptr;
+        std::shared_ptr<expr> init = nullptr;
+        std::shared_ptr<expr> type = nullptr;
         bool is_const = false;
         if (m_match(token::eq)) {
             init = expression();
         }
         consume(token::scolon, "expected ';' after variable declaration");
-        return std::make_unique<variable_expr>(name.str, std::move(type), std::move(init), is_const);
+        return std::make_shared<variable_expr>(name.str, std::move(type), std::move(init), is_const);
     }
 
-    std::unique_ptr<expr> if_stmt_() {
-        std::unique_ptr<expr> cond = expression();
-        std::unique_ptr<expr> then = statement();
-        std::unique_ptr<expr> else_ = nullptr;
+    std::shared_ptr<expr> if_stmt_() {
+        std::shared_ptr<expr> cond = expression();
+        std::shared_ptr<expr> then = statement();
+        std::shared_ptr<expr> else_ = nullptr;
         if (m_match(token::else_)) {
             else_ = statement();
         }
-        return std::make_unique<if_stmt>(std::move(cond), std::move(then), std::move(else_));
+        return std::make_shared<if_stmt>(std::move(cond), std::move(then), std::move(else_));
     }
 
-    std::unique_ptr<expr> function_stmt_() {
+    std::shared_ptr<expr> function_stmt_() {
         auto name = consume(token::identifier, "expected identifier");
-        std::vector<std::unique_ptr<expr>> params;
+        std::vector<std::shared_ptr<expr>> params;
         consume(token::lparen, "expected '(' after function");
         if (!m_get().is(token::rparen)) {
             do {
                 if (params.size() > 255) throw skai::exception{"can't have more than 255 parameters"};
                 consume(token::identifier, "expected identifier");
-                params.push_back(std::make_unique<ident_expr>(m_previous().str));
+                params.push_back(std::make_shared<ident_expr>(m_previous().str));
             } while (m_match(token::comma));
         }
         consume(token::rparen, "expected ')' after argument list");
         consume(token::lbracket, "expected '{' after argument list");
-        return std::make_unique<function_stmt>(name.str, std::move(params), std::make_unique<block_stmt>(block()));
+        return std::make_shared<function_stmt>(name.str, std::move(params), block());
     }
-    std::vector<std::unique_ptr<expr>> block() {
-        std::vector<std::unique_ptr<expr>> stmts;
+    std::vector<std::shared_ptr<expr>> block() {
+        std::vector<std::shared_ptr<expr>> stmts;
         while (m_get().isnot(token::rbracket) && !at_end()) {
             stmts.emplace_back(declaration());
         }
@@ -169,44 +169,44 @@ struct parser {
         return stmts;
     }
 
-    std::unique_ptr<expr> comparison() {
+    std::shared_ptr<expr> comparison() {
         auto expr_ = term();
         while (m_match(token::lt, token::lt_eq, token::gt, token::gt_eq)) {
             auto oper = m_previous();
             auto right = term();
-            expr_ = std::make_unique<binary_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<binary_expr>(std::move(expr_), oper.token, std::move(right));
         }
         return expr_;
     }
-    std::unique_ptr<expr> term() {
+    std::shared_ptr<expr> term() {
         auto expr_ = factor();
         while (m_match(token::plus, token::minus)) {
             auto oper = m_previous();
             auto right = factor();
-            expr_ = std::make_unique<binary_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<binary_expr>(std::move(expr_), oper.token, std::move(right));
         }
         return expr_;
     }
-    std::unique_ptr<expr> factor() {
+    std::shared_ptr<expr> factor() {
         auto expr_ = unary();
         while (m_match(token::slash, token::star)) {
             auto oper = m_previous();
             auto right = unary();
-            expr_ = std::make_unique<binary_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<binary_expr>(std::move(expr_), oper.token, std::move(right));
         }
         return expr_;
     }
-    std::unique_ptr<expr> unary() {
+    std::shared_ptr<expr> unary() {
         if (m_match(token::not_, token::minus, token::plus)) {
             auto oper = m_previous();
-            return std::make_unique<unary_expr>(oper.token, unary());
+            return std::make_shared<unary_expr>(oper.token, unary());
         }
         return call();
     }
 
-    std::unique_ptr<expr> call() {
+    std::shared_ptr<expr> call() {
         auto expr_ = primary();
-        std::vector<std::unique_ptr<expr>> args;
+        std::vector<std::shared_ptr<expr>> args;
         while (true) {
             if (m_match(token::lparen)) {
                 if (!m_get().is(token::rparen)) {
@@ -216,7 +216,7 @@ struct parser {
                     } while (m_match(token::comma));
                 }
                 consume(token::rparen, "expected ')' after argument list");
-                expr_ = std::make_unique<call_expr>(std::move(expr_), std::move(args));
+                expr_ = std::make_shared<call_expr>(std::move(expr_), std::move(args));
             } else {
                 break;
             }
@@ -224,18 +224,18 @@ struct parser {
         return expr_;
     }
 
-    std::unique_ptr<expr> primary() {
+    std::shared_ptr<expr> primary() {
         if (m_match(token::true_, token::false_)) {
-            return std::make_unique<bool_expr>(m_previous().token);
+            return std::make_shared<bool_expr>(m_previous().token);
         }
         if (m_match(token::null)) {
-            return std::make_unique<null_expr>();
+            return std::make_shared<null_expr>();
         }
         if (m_match(token::number)) {
-            return std::make_unique<num_expr>(m_previous().str);
+            return std::make_shared<num_expr>(m_previous().str);
         }
         if (m_match(token::string)) {
-            return std::make_unique<string_expr>(m_previous().str);
+            return std::make_shared<string_expr>(m_previous().str);
         }
         if (m_match(token::lparen)) {
             auto expr_ = expression();
@@ -245,7 +245,7 @@ struct parser {
             return expr_;
         }
         if (m_match(token::identifier)) {
-            return std::make_unique<ident_expr>(m_previous().str);
+            return std::make_shared<ident_expr>(m_previous().str);
         }
         m_error(fmt::format("unexpected token {}", m_get().str));
     }
@@ -256,7 +256,7 @@ struct parser {
 
    public:
     auto parse() {
-        std::vector<std::unique_ptr<expr>> stmts;
+        std::vector<std::shared_ptr<expr>> stmts;
         while (!at_end()) stmts.emplace_back(declaration());
         return stmts;
     }

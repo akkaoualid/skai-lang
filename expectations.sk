@@ -1,8 +1,10 @@
-dec x = 5;
-dec y: int = 5;
-dec z: int;
+let x = 5;
+let y: int = 5;
+let z: int;
 z = 5;
-dec const w: int = 5;
+let const w: int = 5;
+
+let array: any[] = {1, 2, 3, 6};
 
 fun fact(x: int) -> int {
    if x <= 0 {
@@ -12,7 +14,7 @@ fun fact(x: int) -> int {
    }
 };
 
-dec a: int = 1;
+let a: int = 1;
 for i of 0..10 {
     a += i;
 }
@@ -26,6 +28,12 @@ while true {
         continue; 
     }
 }
+
+enum color {
+    red,
+    green,
+    blue
+};
 
 class point {
     fun point(x: int, y: int) {
@@ -42,11 +50,11 @@ class point {
     }
 
     private {
-        dec x:int;
-        dec y:int;
+        let x:int;
+        let y:int;
     }
 }
 
-dec p: point = point(1,2);
-dec p2: point = point(2, 3);
-dec out: point = p * p2;
+let p: point = point(1,2);
+let p2: point = point(2, 3);
+let out: point = p * p2;

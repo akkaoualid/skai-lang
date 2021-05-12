@@ -31,7 +31,7 @@ enum class token {
     null,
     false_,
     true_,
-    dec,
+    let,
     this_,
     return_,
     const_,
@@ -80,7 +80,7 @@ struct token_handler {
 
 static std::unordered_map<std::string, token> keywords{
     {"and", token::and_},       {"or", token::or_},     {"if", token::if_},       {"const", token::const_},
-    {"fun", token::fun},        {"dec", token::dec},    {"class", token::class_}, {"while", token::while_},
+    {"fun", token::fun},        {"let", token::let},    {"class", token::class_}, {"while", token::while_},
     {"for", token::for_},       {"else", token::else_}, {"break", token::break_}, {"continue", token::continue_},
     {"return", token::return_}, {"true", token::true_}, {"false", token::false_}, {"of", token::of},
     {"null", token::null},
@@ -244,7 +244,6 @@ struct lexer {
             throw skai::exception{"unterminated string literal '\"'"};
         }
         m_addtok(token::string, full);
-        m_advance(-1);
     }
     void m_number() {
         std::string full;
