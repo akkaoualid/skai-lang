@@ -50,7 +50,7 @@ struct parser {
         while (m_match(token::not_eq_, token::d_eq)) {
             auto oper = m_previous();
             std::shared_ptr<expr> right = comparison();
-            expr_ = std::make_shared<binary_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<binary_expr>((expr_), oper.token, (right));
         }
         return expr_;
     }
@@ -73,6 +73,8 @@ struct parser {
             return while_stmt_();
         } else if (m_match(token::return_)) {
             return return_stmt_();
+        } else if (m_match(token::for_)) {
+            return for_stmt_();
         }
         return expr_stmt();
     }
@@ -83,12 +85,23 @@ struct parser {
         std::shared_ptr<expr> value = nullptr;
         if (!m_get().is(token::scolon)) value = expression();
         consume(token::scolon, "expected ';' after return  expression");
-        return std::make_shared<return_stmt>(return_stmt{std::move(value)});
+        return std::make_shared<return_stmt>(return_stmt{(value)});
     }
 
     std::shared_ptr<expr> while_stmt_() {
         auto expr_ = expression();
-        return std::make_shared<while_stmt>(std::move(expr_), statement());
+        return std::make_shared<while_stmt>((expr_), statement());
+    }
+
+    std::shared_ptr<expr> for_stmt_() {
+        consume(token::let, "expected variable in for loop initializer");
+        auto init = var_declaration();
+        // consume(token::scolon, "expected ';' after for loop initializer");
+        auto condition = expression();
+        consume(token::scolon, "expected ';' after for loop condition");
+        auto branch = expression();
+        auto body = statement();
+        return std::make_shared<for_stmt>(init, condition, branch, body);
     }
 
     std::shared_ptr<expr> expr_stmt() {
@@ -101,7 +114,7 @@ struct parser {
         auto expr_ = or_expr();
         if (m_match(token::eq)) {
             auto val = assignment();
-            expr_ = std::make_shared<assign_expr>(std::move(expr_), std::move(val));
+            expr_ = std::make_shared<assign_expr>((expr_), (val));
         }
         return expr_;
     }
@@ -111,7 +124,7 @@ struct parser {
         while (m_match(token::or_)) {
             auto oper = m_previous();
             auto right = and_expr();
-            expr_ = std::make_shared<logical_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<logical_expr>((expr_), oper.token, (right));
         }
         return expr_;
     }
@@ -120,7 +133,7 @@ struct parser {
         while (m_match(token::and_)) {
             auto oper = m_previous();
             auto right = equality();
-            expr_ = std::make_shared<logical_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<logical_expr>((expr_), oper.token, (right));
         }
         return expr_;
     }
@@ -134,7 +147,7 @@ struct parser {
             init = expression();
         }
         consume(token::scolon, "expected ';' after variable declaration");
-        return std::make_shared<variable_expr>(name.str, std::move(type), std::move(init), is_const);
+        return std::make_shared<variable_expr>(name.str, (type), (init), is_const);
     }
 
     std::shared_ptr<expr> if_stmt_() {
@@ -144,7 +157,7 @@ struct parser {
         if (m_match(token::else_)) {
             else_ = statement();
         }
-        return std::make_shared<if_stmt>(std::move(cond), std::move(then), std::move(else_));
+        return std::make_shared<if_stmt>((cond), (then), (else_));
     }
 
     std::shared_ptr<expr> function_stmt_() {
@@ -160,7 +173,7 @@ struct parser {
         }
         consume(token::rparen, "expected ')' after argument list");
         consume(token::lbracket, "expected '{' after argument list");
-        return std::make_shared<function_stmt>(name.str, std::move(params), block());
+        return std::make_shared<function_stmt>(name.str, (params), block());
     }
     std::vector<std::shared_ptr<expr>> block() {
         std::vector<std::shared_ptr<expr>> stmts;
@@ -176,7 +189,7 @@ struct parser {
         while (m_match(token::lt, token::lt_eq, token::gt, token::gt_eq)) {
             auto oper = m_previous();
             auto right = term();
-            expr_ = std::make_shared<binary_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<binary_expr>((expr_), oper.token, (right));
         }
         return expr_;
     }
@@ -185,16 +198,17 @@ struct parser {
         while (m_match(token::plus, token::minus)) {
             auto oper = m_previous();
             auto right = factor();
-            expr_ = std::make_shared<binary_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<binary_expr>((expr_), oper.token, (right));
         }
         return expr_;
     }
     std::shared_ptr<expr> factor() {
         auto expr_ = unary();
-        while (m_match(token::slash, token::star, token::mod)) {
+        while (m_match(token::b_and, token::b_and_eq, token::b_or, token::b_or_eq, token::xor_eq_, token::xor_,
+                       token::slash, token::slash_eq, token::star, token::star_eq, token::mod, token::mod_eq)) {
             auto oper = m_previous();
             auto right = unary();
-            expr_ = std::make_shared<binary_expr>(std::move(expr_), oper.token, std::move(right));
+            expr_ = std::make_shared<binary_expr>((expr_), oper.token, (right));
         }
         return expr_;
     }
@@ -218,7 +232,7 @@ struct parser {
                     } while (m_match(token::comma));
                 }
                 consume(token::rparen, "expected ')' after argument list");
-                expr_ = std::make_shared<call_expr>(std::move(expr_), std::move(args));
+                expr_ = std::make_shared<call_expr>((expr_), (args));
             } else {
                 break;
             }

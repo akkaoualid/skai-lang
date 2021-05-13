@@ -2,6 +2,7 @@
 #define SKAI_AST_HPP_739300393
 #include <fmt/format.h>
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -98,9 +99,9 @@ struct return_stmt : expr {
     ast_t type() const override { return ast_t::return_stmt; }
 };
 struct num_expr : expr {
-    int value;
-    num_expr(const std::string& value) : value{std::stoi(value)} {}
-    num_expr(int value) : value{value} {}
+    std::int64_t value;
+    num_expr(const std::string& value) : value{std::stoll(value)} {}
+    num_expr(std::int64_t value) : value{value} {}
 
     std::string debug() const override { return fmt::format("<number value={}>", value); }
     ast_t type() const override { return ast_t::num_expr; }
@@ -185,10 +186,13 @@ struct function_stmt : expr {
     ast_t type() const override { return ast_t::function_stmt; }
 };
 struct for_stmt : expr {
+    std::shared_ptr<expr> init;
+    std::shared_ptr<expr> condition;
     std::shared_ptr<expr> branch;
     std::shared_ptr<expr> body;
 
-    for_stmt(std::shared_ptr<expr> b, std::shared_ptr<expr> o) : branch{std::move(b)}, body{std::move(o)} {}
+    for_stmt(std::shared_ptr<expr> i, std::shared_ptr<expr> c, std::shared_ptr<expr> b, std::shared_ptr<expr> o)
+        : init{i}, condition{c}, branch{b}, body{o} {}
 
     std::string debug() const override {
         return fmt::format("<for condition={} body={}>", branch->debug(), body->debug());

@@ -4,7 +4,7 @@
 <p align="center">skai programming language</p>
 
 # oreview:
-skai-lang is a hobby programming language made for scripting, with a mix of dynamic and static typing.
+skai-lang is a hobby programming language made for scripting, with a mix of dynamic and static typing. [W.I.P]
 
 # goals:
 - [ ] make the language usable

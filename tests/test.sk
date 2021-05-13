@@ -1,8 +1,3 @@
-fun fact(x) {
-    if x <= 0 {
-        return 1;
-    } else {
-        return x-1;
-    }
+for let i = 0; i <= 10; i = i + 1 {
+    print("i is", i);
 }
-let out = fact(5);

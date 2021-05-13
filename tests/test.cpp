@@ -1,10 +1,9 @@
 #include <fstream>
 #include <iostream>
+#include <skai/interpreter.hpp>
+#include <skai/lexer.hpp>
+#include <skai/parser.hpp>
 #include <string>
-
-#include "interpreter.hpp"
-#include "lexer.hpp"
-#include "parser.hpp"
 
 int main(int argc, char** argv) {
     try {
@@ -19,7 +18,7 @@ int main(int argc, char** argv) {
         auto out = parser.parse();
         std::cout << '\n';
         std::cout << full << "\n\n";
-        inter.interpret(std::move(out));
+        inter.interpret(out);
     } catch (skai::exception exc) {
         std::cout << exc.msg << '\n';
     }

@@ -41,15 +41,25 @@ enum class token {
     comma,
     dot,
     plus,
+    plus_eq,
     minus,
+    minus_eq,
     star,
+    star_eq,
     slash,
+    slash_eq,
     mod,
+    mod_eq,
     xor_,
+    xor_eq_,
     b_or,
+    b_or_eq,
     lshift,
+    lshift_eq,
     rshift,
+    rshift_eq,
     b_and,
+    b_and_eq,
     arrow,
     lparen,
     rparen,
@@ -128,13 +138,28 @@ struct lexer {
                 m_addtok(token::colon);
                 break;
             case '*':
-                m_addtok(token::star);
+                if (m_peek() == '=') {
+                    m_advance();
+                    m_addtok(token::star_eq, "*=");
+                } else {
+                    m_addtok(token::star);
+                }
                 break;
             case '+':
-                m_addtok(token::plus);
+                if (m_peek() == '=') {
+                    m_advance();
+                    m_addtok(token::plus_eq, "+=");
+                } else {
+                    m_addtok(token::plus);
+                }
                 break;
             case '%':
-                m_addtok(token::mod);
+                if (m_peek() == '=') {
+                    m_advance();
+                    m_addtok(token::mod_eq, "%=");
+                } else {
+                    m_addtok(token::mod);
+                }
                 break;
             case ' ':
             case '\t':
@@ -144,10 +169,18 @@ struct lexer {
                 m_line++;
                 break;
             case '^':
-                m_addtok(token::xor_);
+                if (m_peek() == '=') {
+                    m_advance();
+                    m_addtok(token::xor_eq_, "^=");
+                } else {
+                    m_addtok(token::xor_);
+                }
                 break;
             case '&':
-                if (m_peek() == '&') {
+                if (m_peek() == '=') {
+                    m_advance();
+                    m_addtok(token::b_and_eq, "&=");
+                } else if (m_peek() == '&') {
                     m_addtok(token::and_, "&&");
                     m_advance();
                 } else {
@@ -155,7 +188,10 @@ struct lexer {
                 }
                 break;
             case '|':
-                if (m_peek() == '|') {
+                if (m_peek() == '=') {
+                    m_advance();
+                    m_addtok(token::b_or_eq, "|=");
+                } else if (m_peek() == '|') {
                     m_addtok(token::or_, "||");
                     m_advance();
                 } else {
@@ -163,7 +199,10 @@ struct lexer {
                 }
                 break;
             case '-':
-                if (m_peek() == '>') {
+                if (m_peek() == '=') {
+                    m_advance();
+                    m_addtok(token::minus_eq);
+                } else if (m_peek() == '>') {
                     m_addtok(token::arrow, "->");
                     m_advance();
                 } else {
@@ -173,9 +212,16 @@ struct lexer {
             case '/':
                 if (m_peek() == '/') {
                     m_advance();
-                    while (m_get() != '\n') m_advance();
+                    do {
+                        m_advance();
+                    } while (m_get() != '\n');
+                    break;
+                } else if (m_peek() == '=') {
+                    m_advance();
+                    m_addtok(token::slash_eq, "/=");
+                } else {
+                    m_addtok(token::slash);
                 }
-                m_addtok(token::slash);
                 break;
             case '!':
                 if (m_peek() == '=') {

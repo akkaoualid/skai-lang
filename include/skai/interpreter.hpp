@@ -4,6 +4,8 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <skai/libs/builtins.hpp>
+#include <skai/utils.hpp>
 #include <utility>
 #include <vector>
 
@@ -14,61 +16,16 @@
 #include "scope.hpp"
 
 namespace skai {
-template <class T, class U>
-T as(U&& arg) {
-    return static_cast<T>(std::forward<U>(arg));
-}
-namespace builtin {
-template <class InterpreterClass>
-struct print : object::callable<InterpreterClass> {
-    std::size_t arity() override { return 1; }
-    std::shared_ptr<object::object> call(InterpreterClass&,
-                                         const std::vector<std::shared_ptr<object::object>>& args) override {
-        std::cout << args.at(0)->to_string();
-        return std::make_shared<object::null>();
-    }
-    object_t to_underlying() const override { return object_t::function; }
-    std::string to_string() const override { return "[pure function]"; }
-};
-
-template <class InterpreterClass>
-struct println : object::callable<InterpreterClass> {
-    std::size_t arity() override { return 1; }
-    std::shared_ptr<object::object> call(InterpreterClass&,
-                                         const std::vector<std::shared_ptr<object::object>>& args) override {
-        std::cout << args.at(0)->to_string() << '\n';
-        return std::make_shared<object::null>();
-    }
-    object_t to_underlying() const override { return object_t::function; }
-    std::string to_string() const override { return "[pure function]"; }
-};
-
-template <class InterpreterClass>
-struct pow : object::callable<InterpreterClass> {
-    std::size_t arity() override { return 2; }
-    std::shared_ptr<object::object> call(InterpreterClass&,
-                                         const std::vector<std::shared_ptr<object::object>>& args) override {
-        if (args.at(0).get()->to_underlying() != object_t::integer &&
-            args.at(1).get()->to_underlying() != object_t::integer)
-            throw skai::exception{"'pow' expected integer arguments type"};
-        return std::make_shared<object::integer>(
-            std::pow(as<object::integer*>(args.at(0).get())->value, as<object::integer*>(args.at(1).get())->value));
-    }
-
-    object_t to_underlying() const override { return object_t::function; }
-    std::string to_string() const override { return "[pure function]"; }
-};
-}  // namespace builtin
 struct interpreter {
     interpreter() : m_globals{}, m_ret{std::make_shared<object::null>()} {
-        m_globals.define("print", std::make_shared<builtin::print<interpreter>>());
-        m_globals.define("println", std::make_shared<builtin::println<interpreter>>());
-        m_globals.define("pow", std::make_shared<builtin::pow<interpreter>>());
+        m_globals.define("print", std::make_shared<builtins::print<interpreter>>());
+        m_globals.define("pow", std::make_shared<builtins::pow<interpreter>>());
+        m_globals.define("prompt", std::make_shared<builtins::prompt<interpreter>>());
         m_env = m_globals;
     }
 
     void interpret(const std::vector<std::shared_ptr<expr>>& exprs) {
-        for (auto& elm : exprs) m_eval(std::move(elm));
+        for (auto& elm : exprs) m_eval(elm);
     }
 
     std::shared_ptr<object::object> m_eval(std::shared_ptr<expr> expr_) {
@@ -125,45 +82,56 @@ struct interpreter {
 
             case ast_t::while_stmt:
                 return m_visit_while(as<while_stmt*>(expr_o));
+
+            case ast_t::for_stmt:
+                return m_visit_for(as<for_stmt*>(expr_o));
         }
     }
 
-    void m_exec_block(const std::vector<std::shared_ptr<expr>>& exprs, const scope<object::object>& sc) {
-        auto prev = m_env;
-        m_env = sc;
-        for (const auto& elm : exprs) {
-            m_eval(elm);
-            if (elm->type() == ast_t::return_stmt) break;
+    void m_exec_block(const std::vector<std::shared_ptr<expr>>& exprs, const scope<object::object>& sc, bool is_a_fnc) {
+        if (is_a_fnc) {
+            auto prev = m_env.get_contents();
+            m_env.set_contents(sc.get_contents());
+            for (const auto& elm : exprs) {
+                if (break_after_ret) break;
+                m_eval(elm);
+            }
+            m_env.set_contents(prev);
+        } else {
+            for (const auto& elm : exprs) {
+                m_eval(elm);
+            }
         }
-        m_env = prev;
     }
 
     std::shared_ptr<object::object> m_visit_ident(ident_expr* idex) { return m_env.get(idex->name); }
 
     std::shared_ptr<object::object> m_visit_var(variable_expr* var) {
-        std::shared_ptr<object::object> value = nullptr;
-        if (var->value != nullptr) value = m_eval(std::move(var->value));
-        m_env.define(var->name, std::move(value));
+        std::shared_ptr<object::object> value = std::make_shared<object::null>();
+        if (var->value != nullptr) value = m_eval(var->value);
+        m_env.define(var->name, value);
         return std::make_unique<object::null>();
     }
 
     std::shared_ptr<object::object> m_visit_call(call_expr* cexpr) {
-        auto callee = m_eval(std::move(cexpr->callee));
+        auto callee = m_eval(cexpr->callee);
         std::vector<std::shared_ptr<object::object>> args;
-        for (auto& arg : cexpr->arguments) args.push_back(m_eval(std::move(arg)));
-        auto function = as<object::callable<interpreter>*>(callee.get());
-        if (function == nullptr) {
+        for (auto& arg : cexpr->arguments) args.push_back(m_eval(arg));
+        if (callee->to_underlying() != object_t::function) {
             throw skai::exception{"cannot perfrom call operation on a non-callable object"};
         }
-        if (args.size() != function->arity()) {
-            throw skai::exception{fmt::format("unmatched arguments count, expected {} arguments got {} instead",
-                                              function->arity(), args.size())};
+        auto function = as<object::callable<interpreter>*>(callee.get());
+        if (!function->variadic()) {
+            if (args.size() != function->arity()) {
+                throw skai::exception{fmt::format("unmatched arguments count, expected {} arguments got {} instead",
+                                                  function->arity(), args.size())};
+            }
         }
-        return function->call(*this, std::move(args));
+        return function->call(*this, args);
     }
 
     std::shared_ptr<object::object> m_visit_assign(assign_expr* aexpr) {
-        auto new_value = m_eval(std::move(aexpr->rhs));
+        auto new_value = m_eval(aexpr->rhs);
         if (aexpr->lhs->type() != ast_t::ident_expr) throw skai::exception{"invalid operand for '='"};
         m_env.assign(as<ident_expr*>(aexpr->lhs.get())->name, new_value);
         return std::make_shared<object::null>();
@@ -186,8 +154,15 @@ struct interpreter {
         return std::make_shared<object::null>();
     }
 
+    std::shared_ptr<object::object> m_visit_for(for_stmt* stmt) {
+        for (auto init = m_eval(stmt->init); m_to_bool(m_eval(stmt->condition)); init = m_eval(stmt->branch))
+            m_eval(stmt->body);
+
+        return std::make_shared<object::null>();
+    }
+
     std::shared_ptr<object::object> m_visit_block(block_stmt* block) {
-        m_exec_block(block->stmts, m_env);
+        m_exec_block(block->stmts, m_env, false);
         return std::make_shared<object::null>();
     }
 
@@ -213,12 +188,15 @@ struct interpreter {
     }
 
     std::shared_ptr<object::object> m_visit_return(return_stmt* rtst) {
-        m_ret = m_eval(std::move(rtst->value));
+        if (!in_func) throw skai::exception{"return statements are only valid in functions definitions"};
+        m_ret = m_eval(rtst->value);
+        break_after_ret = true;
         return m_ret;
     }
 
     std::shared_ptr<object::object> m_visit_func(function_stmt* ftst) {
-        auto fnc = std::make_shared<object::function<interpreter>>(ftst, m_env);
+        auto fnc = std::make_shared<object::function<interpreter>>(*ftst, m_env);
+        break_after_ret = false;
         m_env.define(ftst->name, fnc);
         return std::make_shared<object::null>();
     }
@@ -233,8 +211,8 @@ struct interpreter {
     }
 
     std::shared_ptr<object::object> m_visit_binary_expr(binary_expr* bin) {
-        auto left = m_eval(std::move(bin->lhs));
-        auto right = m_eval(std::move(bin->rhs));
+        auto left = m_eval(bin->lhs);
+        auto right = m_eval(bin->rhs);
         if (left == nullptr && right == nullptr) {
             throw skai::exception{"invalid operands for binary operator"};
         }
@@ -281,8 +259,8 @@ struct interpreter {
     }
 
     std::shared_ptr<object::object> m_visit_logical(logical_expr* expr_) {
-        auto left = m_to_bool(m_eval(std::move(expr_->lhs)));
-        auto right = m_to_bool(m_eval(std::move(expr_->rhs)));
+        auto left = m_to_bool(m_eval(expr_->lhs));
+        auto right = m_to_bool(m_eval(expr_->rhs));
         switch (expr_->op) {
             case token::and_:
                 return std::make_unique<object::boolean>(left && right);
@@ -293,12 +271,19 @@ struct interpreter {
     }
 
     std::shared_ptr<object::object> get_return() { return m_ret; }
+    void set_ret(std::shared_ptr<object::object> obj) { m_ret = obj; }
+    scope<object::object> get_env() { return m_env; }
+
+    void set_in_func(bool x) { in_func = x; }
+    bool get_in_func() const { return in_func; }
 
    private:
     scope<object::object> m_globals;
     std::vector<std::shared_ptr<expr>> m_tokens;
     std::shared_ptr<object::object> m_ret;
     scope<object::object> m_env;
+    bool break_after_ret{};
+    bool in_func{};
 };
 }  // namespace skai
 #endif
