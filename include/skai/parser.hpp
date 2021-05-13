@@ -13,16 +13,16 @@ struct parser {
     parser(const std::vector<token_handler> tkns, const std::string& file) : m_src{tkns}, m_file{file} {}
 
    private:
-    [[noreturn]] void m_error(const std::string& msg) {
-        throw skai::exception{fmt::format("{}:{} - {}", m_file, m_pos, msg)};
-    }
-
     auto m_get() { return m_src.at(at_end() ? m_src.size() - 1 : m_pos); }
     void m_advance(std::size_t x = 1) {
         if (!at_end())
             m_pos += x;
         else
             return;
+    }
+    [[noreturn]] void m_error(const std::string& msg) {
+        throw skai::exception{
+            fmt::format("{}:{}:{} - {}", m_get().loc.file, m_get().loc.line, m_get().loc.column, msg)};
     }
     auto m_peek(std::size_t x = 1) { return m_src.at(m_pos + x); }
     auto m_previous(std::size_t x = 1) { return m_src.at(m_src.size() == 0 ? 0 : m_pos - x); }
@@ -76,6 +76,8 @@ struct parser {
         }
         return expr_stmt();
     }
+
+    std::shared_ptr<expr> parse_arg() {}
 
     std::shared_ptr<expr> return_stmt_() {
         std::shared_ptr<expr> value = nullptr;
@@ -189,7 +191,7 @@ struct parser {
     }
     std::shared_ptr<expr> factor() {
         auto expr_ = unary();
-        while (m_match(token::slash, token::star)) {
+        while (m_match(token::slash, token::star, token::mod)) {
             auto oper = m_previous();
             auto right = unary();
             expr_ = std::make_shared<binary_expr>(std::move(expr_), oper.token, std::move(right));
@@ -253,6 +255,7 @@ struct parser {
     std::vector<token_handler> m_src;
     std::string m_file;
     std::size_t m_pos = 0;
+    std::size_t line = 1;
 
    public:
     auto parse() {

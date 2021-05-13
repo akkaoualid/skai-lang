@@ -171,6 +171,10 @@ struct lexer {
                 }
                 break;
             case '/':
+                if (m_peek() == '/') {
+                    m_advance();
+                    while (m_get() != '\n') m_advance();
+                }
                 m_addtok(token::slash);
                 break;
             case '!':
@@ -257,7 +261,7 @@ struct lexer {
 
     void m_ident() {
         std::string full;
-        while (std::isdigit(static_cast<unsigned char>(m_get())) || std::isalpha(static_cast<unsigned char>(m_get()))) {
+        while (std::isdigit(static_cast<unsigned char>(m_get())) || m_alph(m_get())) {
             full.push_back(m_get());
             m_advance();
         }
@@ -269,6 +273,8 @@ struct lexer {
         }
         m_advance(-1);
     }
+
+    bool m_alph(char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_') || (c == '\''); }
 
     std::vector<token_handler> m_out;
     std::size_t m_line = 1;
