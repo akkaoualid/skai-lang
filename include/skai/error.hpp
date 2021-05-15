@@ -9,5 +9,14 @@ namespace skai {
 struct exception {
     std::string msg;
 };
+struct error_info {
+    std::string message;
+    std::string file;
+    std::string function;
+    std::string module_;
+    std::size_t lineno;
+    std::size_t colno;
+    exception* type;
+};
 }  // namespace skai
 #endif

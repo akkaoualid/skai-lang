@@ -13,7 +13,9 @@ struct parser {
     parser(const std::vector<token_handler> tkns, const std::string& file) : m_src{tkns}, m_file{file} {}
 
    private:
-    auto m_get() { return m_src.at(at_end() ? m_src.size() - 1 : m_pos); }
+    auto m_get() {
+        return m_src.at(at_end() ? m_src.size() - 1 : m_pos);
+    }
     void m_advance(std::size_t x = 1) {
         if (!at_end())
             m_pos += x;
@@ -21,12 +23,18 @@ struct parser {
             return;
     }
     [[noreturn]] void m_error(const std::string& msg) {
-        throw skai::exception{
-            fmt::format("{}:{}:{} - {}", m_get().loc.file, m_get().loc.line, m_get().loc.column, msg)};
+        throw skai::exception{fmt::format("in {}, line: {}, column:{}.\nerror: {}", m_get().loc.file, m_get().loc.line,
+                                          m_get().loc.column, msg)};
     }
-    auto m_peek(std::size_t x = 1) { return m_src.at(m_pos + x); }
-    auto m_previous(std::size_t x = 1) { return m_src.at(m_src.size() == 0 ? 0 : m_pos - x); }
-    bool at_end() { return m_pos >= m_src.size(); }
+    auto m_peek(std::size_t x = 1) {
+        return m_src.at(m_pos + x);
+    }
+    auto m_previous(std::size_t x = 1) {
+        return m_src.at(m_src.size() == 0 ? 0 : m_pos - x);
+    }
+    bool at_end() {
+        return m_pos >= m_src.size();
+    }
     template <class... T>
     bool m_match(T... toks) {
         if (m_get().is(toks...) && !at_end()) {
@@ -37,14 +45,22 @@ struct parser {
     }
 
     auto consume(token tok, const std::string& msg) {
-        if (m_match(tok)) {
-            return m_previous();
-        }
+        if (m_match(tok)) { return m_previous(); }
         m_error(msg);
     }
 
-    auto expression() { return assignment(); }
+    auto expression() {
+        return assignment();
+    }
 
+    std::shared_ptr<expr> assignment() {
+        auto expr_ = or_expr();
+        if (m_match(token::eq)) {
+            auto val = assignment();
+            expr_ = std::make_shared<assign_expr>((expr_), (val));
+        }
+        return expr_;
+    }
     std::shared_ptr<expr> equality() {
         std::shared_ptr<expr> expr_ = comparison();
         while (m_match(token::not_eq_, token::d_eq)) {
@@ -79,7 +95,12 @@ struct parser {
         return expr_stmt();
     }
 
-    std::shared_ptr<expr> parse_arg() {}
+    std::shared_ptr<argument_expr> parse_arg() {
+        auto ident = consume(token::identifier, "expected identifier in function argument");
+        std::shared_ptr<expr> def = nullptr;
+        if (m_match(token::eq)) { def = expression(); }
+        return std::make_shared<argument_expr>(ident.str, def);
+    }
 
     std::shared_ptr<expr> return_stmt_() {
         std::shared_ptr<expr> value = nullptr;
@@ -96,7 +117,6 @@ struct parser {
     std::shared_ptr<expr> for_stmt_() {
         consume(token::let, "expected variable in for loop initializer");
         auto init = var_declaration();
-        // consume(token::scolon, "expected ';' after for loop initializer");
         auto condition = expression();
         consume(token::scolon, "expected ';' after for loop condition");
         auto branch = expression();
@@ -107,15 +127,6 @@ struct parser {
     std::shared_ptr<expr> expr_stmt() {
         auto expr_ = expression();
         consume(token::scolon, "expected ';' after epxression");
-        return expr_;
-    }
-
-    std::shared_ptr<expr> assignment() {
-        auto expr_ = or_expr();
-        if (m_match(token::eq)) {
-            auto val = assignment();
-            expr_ = std::make_shared<assign_expr>((expr_), (val));
-        }
         return expr_;
     }
 
@@ -138,48 +149,48 @@ struct parser {
         return expr_;
     }
     std::shared_ptr<expr> var_declaration() {
-        // TODO: add types and const support
-        auto name = consume(token::identifier, "expected identifier for variable name");
-        std::shared_ptr<expr> init = nullptr;
-        std::shared_ptr<expr> type = nullptr;
         bool is_const = false;
-        if (m_match(token::eq)) {
-            init = expression();
-        }
+        std::shared_ptr<expr> init = nullptr;
+        if (m_match(token::imm)) is_const = true;
+        auto name = consume(token::identifier, "expected identifier for variable name");
+        if (m_match(token::eq)) { init = expression(); }
         consume(token::scolon, "expected ';' after variable declaration");
-        return std::make_shared<variable_expr>(name.str, (type), (init), is_const);
+        return std::make_shared<variable_expr>(name.str, init, is_const);
     }
 
     std::shared_ptr<expr> if_stmt_() {
+        std::shared_ptr<expr> init = nullptr;
+        if (m_match(token::let)) init = var_declaration();
         std::shared_ptr<expr> cond = expression();
         std::shared_ptr<expr> then = statement();
         std::shared_ptr<expr> else_ = nullptr;
-        if (m_match(token::else_)) {
-            else_ = statement();
-        }
-        return std::make_shared<if_stmt>((cond), (then), (else_));
+        if (m_match(token::else_)) { else_ = statement(); }
+        return std::make_shared<if_stmt>(init, cond, then, else_);
     }
 
     std::shared_ptr<expr> function_stmt_() {
         auto name = consume(token::identifier, "expected identifier");
-        std::vector<std::shared_ptr<expr>> params;
+        std::vector<std::shared_ptr<argument_expr>> params;
         consume(token::lparen, "expected '(' after function");
         if (!m_get().is(token::rparen)) {
             do {
                 if (params.size() > 255) throw skai::exception{"can't have more than 255 parameters"};
-                consume(token::identifier, "expected identifier");
-                params.push_back(std::make_shared<ident_expr>(m_previous().str));
+                params.push_back(parse_arg());
             } while (m_match(token::comma));
         }
         consume(token::rparen, "expected ')' after argument list");
         consume(token::lbracket, "expected '{' after argument list");
-        return std::make_shared<function_stmt>(name.str, (params), block());
+        return std::make_shared<function_stmt>(name.str, params, block());
+    }
+
+    std::shared_ptr<expr> class_decl() {
+        auto name = consume(token::identifier, "expected class name");
+        consume(token::lbracket, "expected '{' after class declaration");
+        return std::make_shared<class_expr>(name.str, block());
     }
     std::vector<std::shared_ptr<expr>> block() {
         std::vector<std::shared_ptr<expr>> stmts;
-        while (m_get().isnot(token::rbracket) && !at_end()) {
-            stmts.emplace_back(declaration());
-        }
+        while (m_get().isnot(token::rbracket) && !at_end()) { stmts.emplace_back(declaration()); }
         consume(token::rbracket, "expectd '}' after block statement");
         return stmts;
     }
@@ -195,10 +206,15 @@ struct parser {
     }
     std::shared_ptr<expr> term() {
         auto expr_ = factor();
-        while (m_match(token::plus, token::minus)) {
-            auto oper = m_previous();
-            auto right = factor();
-            expr_ = std::make_shared<binary_expr>((expr_), oper.token, (right));
+        while (m_match(token::plus, token::minus, token::plus_eq, token::minus_eq, token::dot)) {
+            if (m_previous().token == token::dot) {
+                auto val = unary();
+                expr_ = std::make_shared<access_expr>((expr_), (val));
+            } else {
+                auto oper = m_previous();
+                auto right = factor();
+                expr_ = std::make_shared<binary_expr>((expr_), oper.token, (right));
+            }
         }
         return expr_;
     }
@@ -225,7 +241,7 @@ struct parser {
         std::vector<std::shared_ptr<expr>> args;
         while (true) {
             if (m_match(token::lparen)) {
-                if (!m_get().is(token::rparen)) {
+                if (m_get().isnot(token::rparen)) {
                     do {
                         if (args.size() > 255) m_error("can't have more than 255 arguments");
                         args.push_back(expression());
@@ -241,27 +257,25 @@ struct parser {
     }
 
     std::shared_ptr<expr> primary() {
-        if (m_match(token::true_, token::false_)) {
-            return std::make_shared<bool_expr>(m_previous().token);
-        }
-        if (m_match(token::null)) {
-            return std::make_shared<null_expr>();
-        }
-        if (m_match(token::number)) {
-            return std::make_shared<num_expr>(m_previous().str);
-        }
-        if (m_match(token::string)) {
-            return std::make_shared<string_expr>(m_previous().str);
-        }
+        if (m_match(token::true_, token::false_)) { return std::make_shared<bool_expr>(m_previous().token); }
+        if (m_match(token::null)) { return std::make_shared<null_expr>(); }
+        if (m_match(token::self)) { return std::make_shared<self_expr>(); }
+        if (m_match(token::number)) { return std::make_shared<num_expr>(m_previous().str); }
+        if (m_match(token::double_)) { return std::make_shared<ldouble_expr>(m_previous().str); }
+        if (m_match(token::string)) { return std::make_shared<string_expr>(m_previous().str); }
         if (m_match(token::lparen)) {
             auto expr_ = expression();
-            if (!m_match(token::rparen)) {
-                m_error("expected ')' after expression");
-            }
+            if (!m_match(token::rparen)) { m_error("expected ')' after expression"); }
             return expr_;
         }
-        if (m_match(token::identifier)) {
-            return std::make_shared<ident_expr>(m_previous().str);
+        if (m_match(token::identifier)) { return std::make_shared<ident_expr>(m_previous().str); }
+        if (m_match(token::lcbracket)) {
+            std::vector<std::shared_ptr<expr>> vals;
+            if (m_get().isnot(token::rcbracket)) do {
+                    vals.push_back(expression());
+                } while (m_match(token::comma));
+            consume(token::rcbracket, "expected ']' after array declaration");
+            return std::make_shared<array_expr>(vals);
         }
         m_error(fmt::format("unexpected token {}", m_get().str));
     }

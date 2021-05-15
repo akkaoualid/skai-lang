@@ -12,9 +12,9 @@ struct scope {
     scope(const scope<ObjectClass>& enc) : contents{}, enclosing{std::make_shared<scope<ObjectClass>>(enc.contents)} {}
 
     void define(const std::string& name, const std::shared_ptr<ObjectClass>& obj) {
-        if (auto it = contents.find(name); it != contents.end()) {
+        /*if (auto it = contents.find(name); it != contents.end()) {
             throw skai::exception{fmt::format("redefinition of '{}'", name)};
-        }
+        }*/
         contents[name] = obj;
     }
 
@@ -44,6 +44,14 @@ struct scope {
             return enclosing->get(name);
         }
         throw skai::exception{fmt::format("use of undeclared identifier {}.", name)};
+    }
+    std::shared_ptr<ObjectClass> get_or_nullptr(const std::string& name) {
+        if (auto it = contents.find(name); it != contents.end()) {
+            return it->second;
+        } else if (enclosing) {
+            return enclosing->get(name);
+        }
+        return nullptr;
     }
 
     std::string to_string() const {

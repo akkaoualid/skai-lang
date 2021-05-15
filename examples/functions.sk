@@ -1,6 +1,6 @@
-fun say(name) {
+fnc say(name) {
     print("hello,", name, "! wish you a good day!");
 }
 
-let name = prompt("name > ");
+let imm name = prompt("name > ");
 say(name);

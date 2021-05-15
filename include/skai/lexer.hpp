@@ -32,9 +32,9 @@ enum class token {
     false_,
     true_,
     let,
-    this_,
+    self,
     return_,
-    const_,
+    imm,
     of,
     scolon,
     colon,
@@ -70,6 +70,7 @@ enum class token {
     string,
     identifier,
     number,
+    double_,
     range
 };
 
@@ -89,8 +90,8 @@ struct token_handler {
 };
 
 static std::unordered_map<std::string, token> keywords{
-    {"and", token::and_},       {"or", token::or_},     {"if", token::if_},       {"const", token::const_},
-    {"fun", token::fun},        {"let", token::let},    {"class", token::class_}, {"while", token::while_},
+    {"and", token::and_},       {"or", token::or_},     {"if", token::if_},       {"imm", token::imm},
+    {"fnc", token::fun},        {"let", token::let},    {"class", token::class_}, {"while", token::while_},
     {"for", token::for_},       {"else", token::else_}, {"break", token::break_}, {"continue", token::continue_},
     {"return", token::return_}, {"true", token::true_}, {"false", token::false_}, {"of", token::of},
     {"null", token::null},
@@ -103,7 +104,7 @@ struct lexer {
             default:
                 if (std::isdigit(static_cast<unsigned char>(m_get()))) {
                     m_number();
-                } else if (std::isalpha(static_cast<unsigned char>(m_get()))) {
+                } else if (m_alph(m_get())) {
                     m_ident();
                 }
                 break;
@@ -166,7 +167,7 @@ struct lexer {
             case '\r':
                 break;
             case '\n':
-                m_line++;
+                ++m_line;
                 break;
             case '^':
                 if (m_peek() == '=') {
@@ -212,9 +213,7 @@ struct lexer {
             case '/':
                 if (m_peek() == '/') {
                     m_advance();
-                    do {
-                        m_advance();
-                    } while (m_get() != '\n');
+                    do { m_advance(); } while (m_get() != '\n');
                     break;
                 } else if (m_peek() == '=') {
                     m_advance();
@@ -270,38 +269,61 @@ struct lexer {
     }
 
     auto lex() {
-        while (!at_end()) {
-            scan();
-        }
+        while (!at_end()) { scan(); }
         return m_out;
     }
 
    private:
-    void m_advance(std::size_t x = 1) { m_pos += x; }
-    char m_peek(std::size_t x = 1) { return ((m_pos + x) >= m_inp.size() ? '\0' : m_inp.at(m_pos + x)); }
-    char m_previous(std::size_t x = 1) { return m_peek(m_pos - x); }
-    bool at_end() { return m_pos >= m_inp.size(); }
-    char m_get() { return (at_end() ? '\0' : m_inp.at(m_pos)); }
-    void m_addtok(token tok) { m_out.push_back(token_handler{tok, std::string(1, m_get()), {m_file, m_line, m_pos}}); }
-    void m_addtok(token tok, std::string str) { m_out.push_back(token_handler{tok, str, {m_file, m_line, m_pos}}); }
+    void m_advance(std::size_t x = 1) {
+        m_pos += x;
+    }
+    char m_peek(std::size_t x = 1) {
+        return ((m_pos + x) >= m_inp.size() ? '\0' : m_inp.at(m_pos + x));
+    }
+    char m_previous(std::size_t x = 1) {
+        return m_peek(m_pos - x);
+    }
+    bool at_end() {
+        return m_pos >= m_inp.size();
+    }
+    char m_get() {
+        return (at_end() ? '\0' : m_inp.at(m_pos));
+    }
+    void m_addtok(token tok) {
+        m_out.push_back(token_handler{tok, std::string(1, m_get()), {m_file, m_line, m_pos}});
+    }
+    void m_addtok(token tok, std::string str) {
+        m_out.push_back(token_handler{tok, str, {m_file, m_line, m_pos}});
+    }
     void m_string() {
         std::string full;
         while (m_get() != '"' && !at_end()) {
             full.push_back(m_get());
             m_advance();
         }
-        if (at_end()) {
-            throw skai::exception{"unterminated string literal '\"'"};
-        }
+        if (at_end()) { throw skai::exception{"unterminated string literal '\"'"}; }
         m_addtok(token::string, full);
     }
     void m_number() {
         std::string full;
+        bool is_double{};
         while (std::isdigit(static_cast<unsigned char>(m_get())) || m_get() == '.') {
+            if (m_get() == '.' && is_double) break;
+            if (m_get() == '.') is_double = true;
             full.push_back(m_get());
             m_advance();
         }
-        m_addtok(token::number, full);
+        if (is_double && full.back() != '.') {
+            if (std::count(full.begin(), full.end(), '.') > 1) throw skai::exception{"invalid float value"};
+            m_addtok(token::double_, full);
+        } else {
+            // since everything is almost an object we make sure the access operator '.' get's lexed separately from the
+            // number and not treated as a double
+            bool ends_with_dot = full.back() == '.';
+            if (ends_with_dot) full.pop_back();
+            m_addtok(token::number, full);
+            if (ends_with_dot) m_addtok(token::dot, ".");
+        }
         m_advance(-1);
     }
 
@@ -320,7 +342,9 @@ struct lexer {
         m_advance(-1);
     }
 
-    bool m_alph(char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_') || (c == '\''); }
+    bool m_alph(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c == '_') || (c == '\'');
+    }
 
     std::vector<token_handler> m_out;
     std::size_t m_line = 1;
