@@ -97,7 +97,7 @@ struct interpreter {
         else if (auto fexpr = dynamic_cast<subscript_expr*>(expr_o))
             return m_visit_subsc(fexpr);
 
-        else if (auto fexpr = dynamic_cast<break_stmt*>(expr_o))
+        else if (dynamic_cast<break_stmt*>(expr_o))
             is_break = true;
 
         return std::make_shared<object::null>();
@@ -142,8 +142,8 @@ struct interpreter {
         if (auto function = dynamic_cast<object::callable<interpreter>*>(callee.get())) {
             if (!function->variadic()) {
                 if (args.size() < function->mina() || args.size() > function->maxa()) {
-                    std::string pref = args.size() > 0   ? fmt::format("at most '{}' argument", function->maxa())
-                                       : args.size() < 0 ? fmt::format("at least '{}' argument", function->mina())
+                    std::string pref = args.size() > function->maxa()  ? fmt::format("at most '{}' argument", function->maxa())
+                                       : args.size() < function->mina() ? fmt::format("at least '{}' argument", function->mina())
                                                          : fmt::format("'{}' argument", function->maxa());
 
                     throw skai::exception{

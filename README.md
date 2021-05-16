@@ -52,6 +52,14 @@ while let i = 0; i <= 10 {
 }
 ```
 
+# installation:
+```shell
+$ git clone https://github.com/dammi-i/skai-lang
+$ cd skai-lang
+$ cmake . -B ./build
+$ cd ./build && make && make install
+```
+
 # goals:
 - [ ] make the language usable
 - [ ] fix immutable

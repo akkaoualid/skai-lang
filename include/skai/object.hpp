@@ -91,7 +91,7 @@ struct callable : object {
         std::string type_to_string() const override {                 \
             return "function";                                        \
         }                                                             \
-        std::shared_ptr<object::object> call(InterpreterClass& inter, \
+        std::shared_ptr<object::object> call(InterpreterClass&, \
                                              const std::vector<std::shared_ptr<object::object>>& args) override
 
 // clang-format off
@@ -158,7 +158,6 @@ struct function : callable<InterpreterClass> {
 
     function_stmt decl;
     scope<object> env;
-    std::map<std::string, std::function<std::shared_ptr<object>(const std::vector<std::shared_ptr<object>>&)>> members;
     bool variadic_;
     bool is_init;
 };

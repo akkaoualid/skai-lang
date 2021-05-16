@@ -11,6 +11,10 @@ struct scope {
 
     scope(const scope<ObjectClass>& enc) : contents{}, enclosing{std::make_shared<scope<ObjectClass>>(enc.contents)} {}
 
+    scope& operator[](const scope& other) {
+        contents = other.contents;
+    }
+
     void define(const std::string& name, const std::shared_ptr<ObjectClass>& obj) {
         /*if (auto it = contents.find(name); it != contents.end()) {
             throw skai::exception{fmt::format("redefinition of '{}'", name)};

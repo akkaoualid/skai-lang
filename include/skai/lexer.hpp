@@ -77,16 +77,16 @@ enum class token {
 };
 
 struct token_handler {
-    token token;
+    token tok;
     std::string str;
     skai::source_location loc;
-    template <class... tok>
-    bool is(tok... t) {
-        return (... || (token == t));
+    template <class... tok_>
+    bool is(tok_... t) {
+        return (... || (tok == t));
     }
 
-    template <class... tok>
-    bool isnot(tok... t) {
+    template <class... tok_>
+    bool isnot(tok_... t) {
         return !is(t...);
     }
 };

@@ -66,7 +66,7 @@ struct parser {
         while (m_match(token::not_eq_, token::d_eq)) {
             auto oper = m_previous();
             std::shared_ptr<expr> right = comparison();
-            expr_ = std::make_shared<binary_expr>((expr_), oper.token, (right));
+            expr_ = std::make_shared<binary_expr>((expr_), oper.tok, (right));
         }
         return expr_;
     }
@@ -137,7 +137,7 @@ struct parser {
         while (m_match(token::or_)) {
             auto oper = m_previous();
             auto right = and_expr();
-            expr_ = std::make_shared<logical_expr>((expr_), oper.token, (right));
+            expr_ = std::make_shared<logical_expr>((expr_), oper.tok, (right));
         }
         return expr_;
     }
@@ -146,7 +146,7 @@ struct parser {
         while (m_match(token::and_)) {
             auto oper = m_previous();
             auto right = equality();
-            expr_ = std::make_shared<logical_expr>((expr_), oper.token, (right));
+            expr_ = std::make_shared<logical_expr>((expr_), oper.tok, (right));
         }
         return expr_;
     }
@@ -202,7 +202,7 @@ struct parser {
         while (m_match(token::lt, token::lt_eq, token::gt, token::gt_eq)) {
             auto oper = m_previous();
             auto right = term();
-            expr_ = std::make_shared<binary_expr>((expr_), oper.token, (right));
+            expr_ = std::make_shared<binary_expr>((expr_), oper.tok, (right));
         }
         return expr_;
     }
@@ -210,13 +210,13 @@ struct parser {
     std::shared_ptr<expr> term() {
         auto expr_ = factor();
         while (m_match(token::plus, token::minus, token::plus_eq, token::minus_eq, token::dot)) {
-            if (m_previous().token == token::dot) {
+            if (m_previous().tok == token::dot) {
                 auto val = unary();
                 expr_ = std::make_shared<access_expr>((expr_), (val));
             } else {
                 auto oper = m_previous();
                 auto right = factor();
-                expr_ = std::make_shared<binary_expr>((expr_), oper.token, (right));
+                expr_ = std::make_shared<binary_expr>((expr_), oper.tok, (right));
             }
         }
         return expr_;
@@ -227,14 +227,14 @@ struct parser {
                        token::slash, token::slash_eq, token::star, token::star_eq, token::mod, token::mod_eq)) {
             auto oper = m_previous();
             auto right = unary();
-            expr_ = std::make_shared<binary_expr>((expr_), oper.token, (right));
+            expr_ = std::make_shared<binary_expr>((expr_), oper.tok, (right));
         }
         return expr_;
     }
     std::shared_ptr<expr> unary() {
         if (m_match(token::not_, token::minus, token::plus)) {
             auto oper = m_previous();
-            return std::make_shared<unary_expr>(oper.token, unary());
+            return std::make_shared<unary_expr>(oper.tok, unary());
         }
         return subscript();
     }
@@ -274,7 +274,7 @@ struct parser {
     }
 
     std::shared_ptr<expr> primary() {
-        if (m_match(token::true_, token::false_)) { return std::make_shared<bool_expr>(m_previous().token); }
+        if (m_match(token::true_, token::false_)) { return std::make_shared<bool_expr>(m_previous().tok); }
         if (m_match(token::break_)) { return std::make_shared<break_stmt>(); }
         if (m_match(token::continue_)) { return std::make_shared<continue_stmt>(); }
         if (m_match(token::null)) { return std::make_shared<null_expr>(); }
