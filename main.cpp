@@ -1,5 +1,5 @@
 #include <fstream>
-#include <iostream>
+#include <fmt/core.h>
 #include <skai/interpreter.hpp>
 #include <skai/lexer.hpp>
 #include <skai/parser.hpp>
@@ -22,7 +22,6 @@ int main(int, char** argv) {
         skai::parser parse{lexer.lex(), filename};
         skai::interpreter inter;
         auto o = parse.parse();
-        for (auto& e : o) std::puts(e->debug().c_str());
         inter.interpret(o);
-    } catch (skai::exception& exc) { std::cout << exc.msg; }
+    } catch (skai::exception& exc) { fmt::print("{}\n", exc.msg); }
 }

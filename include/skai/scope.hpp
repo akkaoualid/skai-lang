@@ -11,8 +11,9 @@ struct scope {
 
     scope(const scope<ObjectClass>& enc) : contents{}, enclosing{std::make_shared<scope<ObjectClass>>(enc.contents)} {}
 
-    scope& operator[](const scope& other) {
+    scope& operator=(const scope& other) {
         contents = other.contents;
+        return *this;
     }
 
     void define(const std::string& name, const std::shared_ptr<ObjectClass>& obj) {

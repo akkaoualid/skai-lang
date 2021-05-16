@@ -128,7 +128,7 @@ struct function : callable<InterpreterClass> {
         for (std::size_t i = 0; i < maxa(); ++i) {
             try {
                 env.define(decl.arguments.at(i)->name, args.at(i));
-            } catch (std::out_of_range) {
+            } catch (std::out_of_range&) {
                 env.define(decl.arguments.at(i)->name, inter.m_eval(decl.arguments.at(i)->def));
             }
         }
@@ -137,7 +137,7 @@ struct function : callable<InterpreterClass> {
         inter.m_exec_block(decl.body, env, true);
         inter.set_in_func(false);
         auto ret = inter.get_return();
-        if (auto in = dynamic_cast<null*>(ret.get()); is_init)
+        if (!dynamic_cast<null*>(ret.get()) && is_init)
             throw skai::exception{"constructors can't return anything"};
 
         inter.set_ret(std::make_shared<null>());
@@ -226,7 +226,11 @@ struct integer : object {
     }
     ADD_OP(integer, +, integer)
     ADD_OP(integer, -, integer)
-    ADD_OP(ldouble, /, integer)
+    std::shared_ptr<object> operator /(const std::shared_ptr<object>& obj) override {
+        if (auto v = dynamic_cast<integer*>(obj.get())) { return std::make_shared<ldouble>(static_cast<long double>(value) / static_cast<long double>(v->value)); }
+        throw skai::exception{fmt::format("invalid operand for binary operator '{}', '{}' and '{}'", '/',
+                                          type_to_string(), obj->type_to_string())};
+    }
     ADD_OP(integer, *, integer)
     ADD_OP(integer, ^, integer)
     ADD_OP(integer, |, integer)
@@ -304,7 +308,7 @@ struct string : object {
             if (i->value < 0) start = value.size();
             try {
                 return std::make_shared<string>(std::string(1, value.at(start + i->value)));
-            } catch (std::out_of_range) { throw skai::exception{fmt::format("out of bounds index '{}'", i->value)}; }
+            } catch (std::out_of_range&) { throw skai::exception{fmt::format("out of bounds index '{}'", i->value)}; }
         }
         throw skai::exception{
             fmt::format("expected type integer in string subscript operator got '{}' instead", idx->type_to_string())};
@@ -333,7 +337,7 @@ struct array : object {
             if (i->value < 0) start = values.size();
             try {
                 return values.at(start + i->value);
-            } catch (std::out_of_range) { throw skai::exception{fmt::format("out of bounds index '{}'", i->value)}; }
+            } catch (std::out_of_range&) { throw skai::exception{fmt::format("out of bounds index '{}'", i->value)}; }
         }
         throw skai::exception{
             fmt::format("expected type integer in array subscript operator got '{}' instead", idx->type_to_string())};

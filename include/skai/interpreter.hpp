@@ -1,7 +1,7 @@
 #ifndef SKAI_INTERPRETER_HPP_UEOEPEPE738393
 #define SKAI_INTERPRETER_HPP_UEOEPEPE738393
 #include <algorithm>
-#include <iostream>
+#include <string>
 #include <map>
 #include <memory>
 #include <skai/libs/builtins.hpp>
@@ -23,6 +23,7 @@ struct interpreter {
         m_globals.define("random", std::make_shared<builtins::random<interpreter>>());
         m_globals.define("time", std::make_shared<builtins::time<interpreter>>());
         m_globals.define("sleep", std::make_shared<builtins::sleep<interpreter>>());
+        m_globals.define("type_of", std::make_shared<builtins::type_of<interpreter>>());
         m_env = m_globals;
     }
 
@@ -58,7 +59,7 @@ struct interpreter {
         else if (auto fexpr = dynamic_cast<bool_expr*>(expr_o))
             return std::make_shared<object::boolean>(fexpr->value);
 
-        else if (auto fexpr = dynamic_cast<null_expr*>(expr_o))
+        else if (dynamic_cast<null_expr*>(expr_o))
             return std::make_shared<object::null>();
 
         else if (auto fexpr = dynamic_cast<variable_expr*>(expr_o))
@@ -136,7 +137,6 @@ struct interpreter {
 
     std::shared_ptr<object::object> m_visit_call(call_expr* cexpr) {
         auto callee = m_eval(cexpr->callee);
-        fmt::print("{}\n", callee->to_string());
         std::vector<std::shared_ptr<object::object>> args;
         for (auto& arg : cexpr->arguments) args.push_back(m_eval(arg));
         if (auto function = dynamic_cast<object::callable<interpreter>*>(callee.get())) {

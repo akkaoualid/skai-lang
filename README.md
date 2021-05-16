@@ -6,6 +6,9 @@
 # oreview:
 skai-lang is a hobby dynamicaly typed programming language made for scripting. [W.I.P]
 
+# dependencies:
+- [libfmt](https://github.com/fmtlib/fmt)
+
 ## syntax:
 ### Hello, World:
 ```sk
@@ -51,6 +54,46 @@ while let i = 0; i <= 10 {
     i += 1;
 }
 ```
+
+### flow:
+```sk
+if let x = get(); x <= 1 {}
+else { do(); }
+```
+
+
+### functions:
+```sk
+fnc foo() {
+    print("hello");
+}
+fnc foo'() {
+    print(", world!");
+}
+
+foo();
+foo'();
+```
+
+### types:
+```sk
+1; // integer
+2.3; // float
+"hello"; // string
+true; false; // booleans
+[1, "foo", "bar", [1,2]]; // array
+```
+
+### builtin functions:
+```sk
+prompt; // read from stdin
+time; // get current time in milloseconds
+random; // get a random number within a range
+print; // print to stdout
+type_of; // get the type of a value
+sleep; // pause the current thread for a specified duration
+```
+
 
 # installation:
 ```shell

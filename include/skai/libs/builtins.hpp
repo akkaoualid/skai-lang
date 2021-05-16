@@ -58,6 +58,7 @@ SK_FUNC(random, 2, 2, false, args) {
         std::uniform_int_distribution<std::int64_t> un(f->value, l->value);
         return std::make_shared<object::integer>(un(mt));
     }
+    throw skai::exception{"random: expected integer types"};
 }
 SK_FUNC_END
 
