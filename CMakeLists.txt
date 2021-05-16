@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.5)
+project(skai CXX)
+
+function(set_warns)
+    set(msvc_warns /W4 /permissive)
+    set(gcc_clang_warns -Wextra -Wall -Wpedantic)
+    if(MSVC)
+        set(warns ${msvc_warns})
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES ".Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(warns ${gcc_clang_warns})
+    else()
+        message(AUTHOR_WARNING "no compiler warnings")
+    endif()
+    target_compile_options(skai ${warns})
+endfunction()
+
+target_compile_features(skai cxx_std_17)
+add_library(fmt STATIC)
+target_include_directories("${CMAKE_SOURCE_DIR}/include")
+
+set_warns()

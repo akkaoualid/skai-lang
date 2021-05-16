@@ -1,0 +1,57 @@
+let x = 5;
+let imm x = 10;
+
+if true {}
+if let x = get(); x {}
+while let x = get(); x {}
+for let x = get(); x; x += 1 {}
+for x of r {}
+
+fnc get() { return random(0, 10); }
+
+let get = lm -> random(0, 10);
+let arr = [1, 2, 3, 4, 5];
+
+arr.filter(lm x -> (x % 2).to_bool()).map(lm x -> x*2);
+
+fnc hello(name) {
+    print("hello, ${name}!");
+}
+
+hello("john");
+hello(name: "john");
+
+hello(["j", "o", "h", "n"]...);
+
+class foo {
+    fnc foo(x, y) {
+        self.x = x;
+        self.y = y;
+    }
+    fnc to_string() {
+        return "foo[${this.x}, ${this.y}]";
+    }
+};
+
+let x = foo(5,7);
+print(x);
+
+import std.math as m;
+
+print(m.sin(m.pi));
+
+import std.fmt as fmt;
+
+print(fmt.format("hello from {}", "skai"));
+
+let imm num = prompt("enter the first operand > ").to_integer();
+let imm op = prompt("operator > ");
+let imm num' = prompt("enter the second operand > ").to_integer();
+
+match op {
+    '-' -> print(num - num');
+    '+' -> print(num + num');
+    '/' -> print(num / num');
+    '*' -> print(num * num');
+    _ -> print("invalid operation ${op}");
+}

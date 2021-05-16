@@ -17,7 +17,7 @@ struct assign_expr : expr {
     std::shared_ptr<expr> lhs;
     std::shared_ptr<expr> rhs;
 
-    assign_expr(std::shared_ptr<expr> lhs, std::shared_ptr<expr> rhs) : lhs{std::move(lhs)}, rhs{std::move(rhs)} {}
+    assign_expr(std::shared_ptr<expr> lhs, std::shared_ptr<expr> rhs) : lhs{(lhs)}, rhs{(rhs)} {}
 
     std::string debug() const override {
         return fmt::format("assgin(left={}, right{})", lhs->debug(), rhs->debug());
@@ -29,8 +29,7 @@ struct binary_expr : expr {
     token op;
     std::shared_ptr<expr> rhs;
 
-    binary_expr(std::shared_ptr<expr> lhs, token t, std::shared_ptr<expr> rhs)
-        : lhs{std::move(lhs)}, op{t}, rhs{std::move(rhs)} {}
+    binary_expr(std::shared_ptr<expr> lhs, token t, std::shared_ptr<expr> rhs) : lhs{(lhs)}, op{t}, rhs{(rhs)} {}
 
     std::string debug() const override {
         return fmt::format("binary(left={}, operator={}, right={})", lhs->debug(), op, rhs->debug());
@@ -41,8 +40,7 @@ struct logical_expr : expr {
     token op;
     std::shared_ptr<expr> rhs;
 
-    logical_expr(std::shared_ptr<expr> lhs, token t, std::shared_ptr<expr> rhs)
-        : lhs{std::move(lhs)}, op{t}, rhs{std::move(rhs)} {}
+    logical_expr(std::shared_ptr<expr> lhs, token t, std::shared_ptr<expr> rhs) : lhs{(lhs)}, op{t}, rhs{(rhs)} {}
     std::string debug() const override {
         return fmt::format("logical(left={}, operand={}, right={})", lhs->debug(), op, rhs->debug());
     }
@@ -51,7 +49,7 @@ struct unary_expr : expr {
     token op;
     std::shared_ptr<expr> operand;
 
-    unary_expr(token t, std::shared_ptr<expr> opr) : op{t}, operand{std::move(opr)} {}
+    unary_expr(token t, std::shared_ptr<expr> opr) : op{t}, operand{(opr)} {}
 
     std::string debug() const override {
         return fmt::format("unary(operator={}, operand={})", op, operand->debug());
@@ -68,7 +66,7 @@ struct bool_expr : expr {
 };
 struct return_stmt : expr {
     std::shared_ptr<expr> value;
-    return_stmt(std::shared_ptr<expr> v) : value{std::move(v)} {}
+    return_stmt(std::shared_ptr<expr> v) : value{(v)} {}
 
     std::string debug() const override {
         return fmt::format("return({})", value->debug());
@@ -118,6 +116,16 @@ struct null_expr : expr {
         return "null";
     }
 };
+struct break_stmt : expr {
+    std::string debug() const override {
+        return "break";
+    }
+};
+struct continue_stmt : expr {
+    std::string debug() const override {
+        return "continue";
+    }
+};
 struct self_expr : expr {
     std::string debug() const override {
         return "self";
@@ -127,8 +135,7 @@ struct variable_expr : expr {
     std::string name;
     std::shared_ptr<expr> value;
     bool is_const;
-    variable_expr(const std::string& val, std::shared_ptr<expr> v, bool i_c)
-        : name{val}, value{std::move(v)}, is_const{i_c} {}
+    variable_expr(const std::string& val, std::shared_ptr<expr> v, bool i_c) : name{val}, value{(v)}, is_const{i_c} {}
 
     std::string debug() const override {
         return fmt::format("variable(name={}, value={})", name, value->debug());
@@ -147,7 +154,7 @@ struct if_stmt : expr {
     std::shared_ptr<expr> then_branch;
     std::shared_ptr<expr> else_branch;
     if_stmt(const std::shared_ptr<expr>& i, std::shared_ptr<expr> c, std::shared_ptr<expr> t, std::shared_ptr<expr> e)
-        : condition{std::move(c)}, init{i}, then_branch{std::move(t)}, else_branch{std::move(e)} {}
+        : condition{(c)}, init{i}, then_branch{(t)}, else_branch{(e)} {}
 
     std::string debug() const override {
         return fmt::format("if(confition={}, then={}, else={})", condition->debug(), then_branch->debug(),
@@ -157,8 +164,7 @@ struct if_stmt : expr {
 struct call_expr : expr {
     std::shared_ptr<expr> callee;
     std::vector<std::shared_ptr<expr>> arguments;
-    call_expr(std::shared_ptr<expr> c, std::vector<std::shared_ptr<expr>> a)
-        : callee{std::move(c)}, arguments{std::move(a)} {}
+    call_expr(std::shared_ptr<expr> c, std::vector<std::shared_ptr<expr>> a) : callee{(c)}, arguments{(a)} {}
 
     std::string debug() const override {
         std::string str{};
@@ -211,10 +217,12 @@ struct for_stmt : expr {
     }
 };
 struct while_stmt : expr {
+    std::shared_ptr<expr> init;
     std::shared_ptr<expr> branch;
     std::shared_ptr<expr> body;
 
-    while_stmt(std::shared_ptr<expr> b, std::shared_ptr<expr> o) : branch{std::move(b)}, body{std::move(o)} {}
+    while_stmt(const std::shared_ptr<expr>& i, std::shared_ptr<expr> b, std::shared_ptr<expr> o)
+        : init{i}, branch{(b)}, body{(o)} {}
 
     std::string debug() const override {
         return fmt::format("while(condition={}, body={})", branch->debug(), body->debug());
@@ -242,7 +250,7 @@ struct access_expr : expr {
 
 struct block_stmt : expr {
     std::vector<std::shared_ptr<expr>> stmts;
-    block_stmt(std::vector<std::shared_ptr<expr>> s) : stmts{std::move(s)} {}
+    block_stmt(std::vector<std::shared_ptr<expr>> s) : stmts{(s)} {}
 
     std::string debug() const override {
         std::string out{};
@@ -267,6 +275,8 @@ struct iterate_expr : expr {
 struct subscript_expr : expr {
     std::shared_ptr<expr> object;
     std::shared_ptr<expr> target;
+
+    subscript_expr(const std::shared_ptr<expr>& o, const std::shared_ptr<expr>& t) : object{o}, target{t} {}
 
     std::string debug() const override {
         return fmt::format("subscript(object={}, target={})", object->debug(), target->debug());

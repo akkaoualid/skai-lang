@@ -35,6 +35,7 @@ enum class token {
     self,
     return_,
     imm,
+    lm,
     of,
     scolon,
     colon,
@@ -69,6 +70,7 @@ enum class token {
     rcbracket,
     string,
     identifier,
+    negate,
     number,
     double_,
     range
@@ -94,8 +96,7 @@ static std::unordered_map<std::string, token> keywords{
     {"fnc", token::fun},        {"let", token::let},    {"class", token::class_}, {"while", token::while_},
     {"for", token::for_},       {"else", token::else_}, {"break", token::break_}, {"continue", token::continue_},
     {"return", token::return_}, {"true", token::true_}, {"false", token::false_}, {"of", token::of},
-    {"null", token::null},
-};
+    {"null", token::null},      {"lm", token::lm}};
 struct lexer {
     lexer(const std::string& str, const std::string& name) : m_inp{str}, m_file{name} {}
 
@@ -134,6 +135,9 @@ struct lexer {
                 break;
             case ';':
                 m_addtok(token::scolon);
+                break;
+            case '~':
+                m_addtok(token::negate);
                 break;
             case ':':
                 m_addtok(token::colon);
@@ -297,9 +301,16 @@ struct lexer {
     }
     void m_string() {
         std::string full;
+    br : {
         while (m_get() != '"' && !at_end()) {
             full.push_back(m_get());
             m_advance();
+        }
+    }
+        if (full.back() == '\\') {
+            full.push_back('"');
+            m_advance();
+            goto br;
         }
         if (at_end()) { throw skai::exception{"unterminated string literal '\"'"}; }
         m_addtok(token::string, full);

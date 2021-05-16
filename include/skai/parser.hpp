@@ -110,8 +110,10 @@ struct parser {
     }
 
     std::shared_ptr<expr> while_stmt_() {
+        std::shared_ptr<expr> init = nullptr;
+        if (m_match(token::let)) init = var_declaration();
         auto expr_ = expression();
-        return std::make_shared<while_stmt>((expr_), statement());
+        return std::make_shared<while_stmt>(init, expr_, statement());
     }
 
     std::shared_ptr<expr> for_stmt_() {
@@ -204,6 +206,7 @@ struct parser {
         }
         return expr_;
     }
+
     std::shared_ptr<expr> term() {
         auto expr_ = factor();
         while (m_match(token::plus, token::minus, token::plus_eq, token::minus_eq, token::dot)) {
@@ -233,11 +236,20 @@ struct parser {
             auto oper = m_previous();
             return std::make_shared<unary_expr>(oper.token, unary());
         }
-        return call();
+        return subscript();
+    }
+    std::shared_ptr<expr> subscript() {
+        auto expr_ = call();
+        while (m_match(token::lcbracket)) {
+            auto idx = expression();
+            consume(token::rcbracket, "expected ']' after subscript expression");
+            expr_ = std::make_shared<subscript_expr>(expr_, idx);
+        }
+        return expr_;
     }
 
     std::shared_ptr<expr> call() {
-        auto expr_ = primary();
+        auto expr_ = access();
         std::vector<std::shared_ptr<expr>> args;
         while (true) {
             if (m_match(token::lparen)) {
@@ -255,9 +267,16 @@ struct parser {
         }
         return expr_;
     }
+    std::shared_ptr<expr> access() {
+        auto expr_ = primary();
+        while (m_match(token::dot)) { expr_ = std::make_shared<access_expr>(expr_, primary()); }
+        return expr_;
+    }
 
     std::shared_ptr<expr> primary() {
         if (m_match(token::true_, token::false_)) { return std::make_shared<bool_expr>(m_previous().token); }
+        if (m_match(token::break_)) { return std::make_shared<break_stmt>(); }
+        if (m_match(token::continue_)) { return std::make_shared<continue_stmt>(); }
         if (m_match(token::null)) { return std::make_shared<null_expr>(); }
         if (m_match(token::self)) { return std::make_shared<self_expr>(); }
         if (m_match(token::number)) { return std::make_shared<num_expr>(m_previous().str); }

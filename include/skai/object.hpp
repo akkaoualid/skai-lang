@@ -50,6 +50,7 @@ struct object {
     DEF_OPER(>)
     DEF_OPER(<=)
     DEF_OPER(>=)
+    DEF_OPER([])
     virtual ~object() {}
 };
 using arg_t = std::vector<std::shared_ptr<object>>;
@@ -168,6 +169,12 @@ struct function : callable<InterpreterClass> {
         throw skai::exception{fmt::format("invalid operand for binary operator '{}', '{}' and '{}'", #op, \
                                           type_to_string(), obj->type_to_string())};                      \
     }
+#define BIND_OP(ret, cxxfn, arg, op)                                                                               \
+    std::shared_ptr<object> operator op(const std::shared_ptr<object>& obj) override {                             \
+        if (auto v = dynamic_cast<arg*>(obj.get())) { return std::make_shared<ret>(std::cxxfn(value, v->value)); } \
+        throw skai::exception{fmt::format("invalid operand for binary operator '{}', '{}' and '{}'", #op,          \
+                                          type_to_string(), obj->type_to_string())};                               \
+    }
 struct boolean : object {
     bool value;
     boolean(bool v) : value{v} {}
@@ -182,52 +189,6 @@ struct boolean : object {
     ADD_OP(boolean, !=, boolean)
     ADD_OP(boolean, &&, boolean)
     ADD_OP(boolean, ||, boolean)
-};
-struct string : object {
-    std::string value;
-    string(std::string v) : value{v} {}
-
-    std::string to_string() const override {
-        return value;
-    }
-    std::string type_to_string() const override {
-        return "string";
-    }
-    ADD_OP(string, +, string)
-    ADD_OP(boolean, ==, string)
-    ADD_OP(boolean, !=, string)
-    ADD_OP(boolean, <, string)
-    ADD_OP(boolean, >, string)
-    ADD_OP(boolean, <=, string)
-    ADD_OP(boolean, >=, string)
-};
-struct integer : object {
-    std::int64_t value;
-    integer(std::int64_t v) : value{v} {}
-
-    std::string to_string() const override {
-        return fmt::format("{}", value);
-    }
-
-    std::string type_to_string() const override {
-        return "integer";
-    }
-    ADD_OP(integer, +, integer)
-    ADD_OP(integer, -, integer)
-    ADD_OP(integer, /, integer)
-    ADD_OP(integer, *, integer)
-    ADD_OP(integer, ^, integer)
-    ADD_OP(integer, |, integer)
-    ADD_OP(integer, &, integer)
-    ADD_OP(integer, %, integer)
-    ADD_OP(integer, >>, integer)
-    ADD_OP(integer, <<, integer)
-    ADD_OP(boolean, ==, integer)
-    ADD_OP(boolean, !=, integer)
-    ADD_OP(boolean, <, integer)
-    ADD_OP(boolean, >, integer)
-    ADD_OP(boolean, <=, integer)
-    ADD_OP(boolean, >=, integer)
 };
 struct ldouble : object {
     long double value;
@@ -245,12 +206,7 @@ struct ldouble : object {
     ADD_OP(ldouble, -, ldouble)
     ADD_OP(ldouble, /, ldouble)
     ADD_OP(ldouble, *, ldouble)
-    /*ADD_OP(ldouble, ^, ldouble)
-    ADD_OP(ldouble, |, ldouble)
-    ADD_OP(ldouble, &, ldouble)
-    ADD_OP(ldouble, %, ldouble)
-    ADD_OP(ldouble, >>, ldouble)
-    ADD_OP(ldouble, <<, ldouble)*/
+    BIND_OP(ldouble, fmod, ldouble, %)
     ADD_OP(boolean, ==, ldouble)
     ADD_OP(boolean, !=, ldouble)
     ADD_OP(boolean, <, ldouble)
@@ -258,42 +214,103 @@ struct ldouble : object {
     ADD_OP(boolean, <=, ldouble)
     ADD_OP(boolean, >=, ldouble)
 };
-/*
-template <class MainClass>
-struct instance : object {
-    instance(MainClass cls) : m_class{cls} {}
+struct integer : object {
+    std::int64_t value;
+    integer(std::int64_t v) : value{v} {}
 
-    std::size_t mina() override { return 0; }
-    std::size_t maxa() override { return 0; }
-    bool variadic() const override { return false; }
-    std::string to_string() const override { return fmt::format("[instance of '{}']", m_class->to_string()); }
-    MainClass m_class;
-};
-
-template <class InterpreterClass>
-struct class_o : callable<InterpreterClass> {
-    class_o(const std::string& n, const scope<object>& s) : m_name{n}, m_scope{s} {}
-
-    std::shared_ptr<object> call(InterpreterClass& i, const std::vector<std::shared_ptr<object>>& args) {
-        instance<class_o> ins(*this);
-        if (auto init = m_scope.get_or_nullptr("init")) {
-            if (auto func = dynamic_cast<function<InterpreterClass>*>(init.get()))
-                return func->bind(ins)->call(i, args);
-            throw skai::exception{fmt::format("undefined method 'init' of class '{}'", m_name)};
-        }
-
-        throw skai::exception{fmt::format("undefined method 'init' of class '{}'", m_name)};
+    std::string to_string() const override {
+        return fmt::format("{}", value);
     }
 
-    std::size_t mina() override { return 0; }
-    std::size_t maxa() override { return 0; }
-    bool variadic() const override { return false; }
-    std::string to_string() const override { return m_name; }
-    scope<object> m_scope;
-    std::string m_name;
+    std::string type_to_string() const override {
+        return "integer";
+    }
+    ADD_OP(integer, +, integer)
+    ADD_OP(integer, -, integer)
+    ADD_OP(ldouble, /, integer)
+    ADD_OP(integer, *, integer)
+    ADD_OP(integer, ^, integer)
+    ADD_OP(integer, |, integer)
+    ADD_OP(integer, &, integer)
+    ADD_OP(integer, %, integer)
+    ADD_OP(integer, >>, integer)
+    ADD_OP(integer, <<, integer)
+    ADD_OP(boolean, ==, integer)
+    ADD_OP(boolean, !=, integer)
+    ADD_OP(boolean, <, integer)
+    ADD_OP(boolean, >, integer)
+    ADD_OP(boolean, <=, integer)
+    ADD_OP(boolean, >=, integer)
 };
+struct string : object {
+    std::string value;
+    string(std::string v) : value{v} {}
 
-*/
+    std::string to_string() const override {
+        std::string str;
+        for (std::size_t i = 0; i < value.size(); ++i) {
+            if (value.at(i) == '\\') {
+                switch (char c = value.at(i + 1)) {
+                    default:
+                        throw skai::exception{fmt::format("invalid escape character '{}'", c)};
+                    case 'n':
+                        str.push_back('\n');
+                        break;
+                    case 't':
+                        str.push_back('\t');
+                        break;
+                    case 'r':
+                        str.push_back('\r');
+                        break;
+                    case '\\':
+                        str.push_back('\\');
+                        break;
+                    case '"':
+                        str.push_back('"');
+                        break;
+                    case 'b':
+                        str.push_back('\b');
+                        break;
+                    case 'v':
+                        str.push_back('\v');
+                        break;
+                    case 'f':
+                        str.push_back('\f');
+                        break;
+                    case '0':
+                        str.push_back('\0');
+                        break;
+                }
+                i += 2;
+            } else {
+                str.push_back(value.at(i));
+            }
+        }
+        return str;
+    }
+    std::string type_to_string() const override {
+        return "string";
+    }
+    ADD_OP(string, +, string)
+    ADD_OP(boolean, ==, string)
+    ADD_OP(boolean, !=, string)
+    ADD_OP(boolean, <, string)
+    ADD_OP(boolean, >, string)
+    ADD_OP(boolean, <=, string)
+    ADD_OP(boolean, >=, string)
+
+    std::shared_ptr<object> operator[](const std::shared_ptr<object>& idx) override {
+        if (auto i = dynamic_cast<integer*>(idx.get())) {
+            std::size_t start = 0;
+            if (i->value < 0) start = value.size();
+            try {
+                return std::make_shared<string>(std::string(1, value.at(start + i->value)));
+            } catch (std::out_of_range) { throw skai::exception{fmt::format("out of bounds index '{}'", i->value)}; }
+        }
+        throw skai::exception{
+            fmt::format("expected type integer in string subscript operator got '{}' instead", idx->type_to_string())};
+    }
+};
 struct array : object {
     std::vector<std::shared_ptr<object>> values;
 
@@ -310,6 +327,17 @@ struct array : object {
     }
     std::string type_to_string() const override {
         return "array";
+    }
+    std::shared_ptr<object> operator[](const std::shared_ptr<object>& idx) override {
+        if (auto i = dynamic_cast<integer*>(idx.get())) {
+            std::size_t start = 0;
+            if (i->value < 0) start = values.size();
+            try {
+                return values.at(start + i->value);
+            } catch (std::out_of_range) { throw skai::exception{fmt::format("out of bounds index '{}'", i->value)}; }
+        }
+        throw skai::exception{
+            fmt::format("expected type integer in array subscript operator got '{}' instead", idx->type_to_string())};
     }
 };
 struct variable : object {

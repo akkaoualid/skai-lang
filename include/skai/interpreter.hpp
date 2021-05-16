@@ -94,8 +94,13 @@ struct interpreter {
         else if (auto fexpr = dynamic_cast<array_expr*>(expr_o))
             return m_visit_arr(fexpr);
 
-        else
-            return std::make_shared<object::null>();
+        else if (auto fexpr = dynamic_cast<subscript_expr*>(expr_o))
+            return m_visit_subsc(fexpr);
+
+        else if (auto fexpr = dynamic_cast<break_stmt*>(expr_o))
+            is_break = true;
+
+        return std::make_shared<object::null>();
     }
 
     void m_exec_block(const std::vector<std::shared_ptr<expr>>& exprs, const scope<object::object>& sc, bool is_a_fnc) {
@@ -131,6 +136,7 @@ struct interpreter {
 
     std::shared_ptr<object::object> m_visit_call(call_expr* cexpr) {
         auto callee = m_eval(cexpr->callee);
+        fmt::print("{}\n", callee->to_string());
         std::vector<std::shared_ptr<object::object>> args;
         for (auto& arg : cexpr->arguments) args.push_back(m_eval(arg));
         if (auto function = dynamic_cast<object::callable<interpreter>*>(callee.get())) {
@@ -163,7 +169,12 @@ struct interpreter {
         auto left = m_eval(aexpr->target);
     }
 
+    std::shared_ptr<object::object> m_visit_subsc(subscript_expr* sexpr) {
+        return m_eval(sexpr->object)->operator[](m_eval(sexpr->target));
+    }
+
     std::shared_ptr<object::object> m_visit_if_stmt(if_stmt* stmt) {
+        if (stmt->init != nullptr) m_eval(stmt->init);
         if (m_to_bool(m_eval(stmt->condition))) {
             m_eval(stmt->then_branch);
 
@@ -174,14 +185,20 @@ struct interpreter {
     }
 
     std::shared_ptr<object::object> m_visit_while(while_stmt* stmt) {
-        while (m_to_bool(m_eval(stmt->branch))) { m_eval(stmt->body); }
+        within_a_loop = true;
+        if (stmt->init != nullptr) m_eval(stmt->init);
+        while (m_to_bool(m_eval(stmt->branch)) && !is_break) { m_eval(stmt->body); }
+        within_a_loop = false;
         return std::make_shared<object::null>();
     }
 
     std::shared_ptr<object::object> m_visit_for(for_stmt* stmt) {
-        for (auto init = m_eval(stmt->init); m_to_bool(m_eval(stmt->condition)); init = m_eval(stmt->branch))
+        within_a_loop = true;
+        for (auto init = m_eval(stmt->init); m_to_bool(m_eval(stmt->condition)) && !is_break;
+             init = m_eval(stmt->branch))
             m_eval(stmt->body);
 
+        within_a_loop = false;
         return std::make_shared<object::null>();
     }
 
@@ -302,6 +319,8 @@ struct interpreter {
     std::vector<std::shared_ptr<expr>> m_tokens;
     std::shared_ptr<object::object> m_ret;
     scope<object::object> m_env;
+    bool is_break{};
+    bool within_a_loop{};
     bool break_after_ret{};
     bool in_func{};
 };
